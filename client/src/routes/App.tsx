@@ -14,8 +14,11 @@ export default function App() {
       <Route path="/" element={<Navigate to="/devices" replace />} />
       <Route path="/devices" element={<DevicesPage />} />
 
-      <Route path="/devices/:id" element={<DeviceLayout />}>
-        <Route index element={<DashboardDevicePage />} />
+      {/* ✅ Dashboard sem header de canais */}
+      <Route path="/devices/:id" element={<DashboardDevicePage />} />
+
+      {/* ✅ Subpáginas com header fixo + seleção de CH */}
+      <Route path="/devices/:id/*" element={<DeviceLayout />}>
         <Route path="routing" element={<RoutingPage />} />
         <Route path="delay" element={<DelayPage />} />
         <Route path="eq" element={<EqPage />} />

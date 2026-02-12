@@ -37,7 +37,7 @@ export default function DbScale({
       {/* wrapper para aplicar inset (se quiser) */}
       <div
         className="relative h-6"
-        style={{ marginLeft: insetPx, marginRight: insetPx*3 }}
+        style={{ marginLeft: insetPx }}
       >
         {marks.map((m) => {
           const p = pctFromDb(m, minDb, maxDb);

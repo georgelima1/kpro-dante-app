@@ -5,3 +5,106 @@
 :root { color-scheme: dark; }
 html, body { height: 100%; }
 body { @apply bg-smx-bg text-smx-text; }
+
+
+/* ---------- Soundmax Range (PRO) ---------- */
+.smx-range {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 34px;             /* área grande p/ touch */
+    background: transparent;
+    cursor: pointer;
+    touch-action: pan-x;
+  }
+  
+  /* Track */
+  .smx-range::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  
+  .smx-range::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  
+  /* Thumb */
+  .smx-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,0.95);
+    background: rgba(0,0,0,0.35);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    margin-top: -9px; /* centraliza no track (22/2 - 6/2) */
+    transition: transform 150ms ease, box-shadow 150ms ease;
+  }
+  
+  .smx-range:active::-webkit-slider-thumb {
+    transform: scale(1.06);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+  }
+  
+  .smx-range::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,0.95);
+    background: rgba(0,0,0,0.35);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    transition: transform 150ms ease, box-shadow 150ms ease;
+  }
+  
+  .smx-range:active::-moz-range-thumb {
+    transform: scale(1.06);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.45);
+  }
+  
+  /* “filled track” via background linear-gradient (opcional) */
+  .smx-range-red::-webkit-slider-runnable-track {
+    background: linear-gradient(90deg, rgba(255,0,0,0.8), rgba(255,255,255,0.18));
+  }
+
+  /* Track padrão (já tinha) */
+.smx-range::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  .smx-range::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  
+  /* ✅ Track preenchido até o valor usando CSS var --fill */
+  .smx-range-fill::-webkit-slider-runnable-track {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(255, 0, 0, 0.9) 0%,
+        rgba(255, 0, 0, 0.9) var(--fill),
+        rgba(255, 255, 255, 0.18) var(--fill),
+        rgba(255, 255, 255, 0.18) 100%
+      );
+  }
+  .smx-range-fill::-moz-range-track {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(255, 0, 0, 0.9) 0%,
+        rgba(255, 0, 0, 0.9) var(--fill),
+        rgba(255, 255, 255, 0.18) var(--fill),
+        rgba(255, 255, 255, 0.18) 100%
+      );
+  }
+  
