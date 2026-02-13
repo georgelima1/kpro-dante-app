@@ -130,8 +130,14 @@ export default function Shell({ children }: PropsWithChildren) {
         };
     }, [drawerOpen]);
 
+    useEffect(() => {
+        setOutputFlyoutOpen(false);
+    }, [pathname]);
+
     // controla expansão do grupo Output
     const [openOutput, setOpenOutput] = useState(true);
+
+    const [outputFlyoutOpen, setOutputFlyoutOpen] = useState(false);
 
     const sidebarWidth = collapsed ? 100 : 288;
 
@@ -158,6 +164,7 @@ export default function Shell({ children }: PropsWithChildren) {
         const href = item.href({ deviceId, ch });
         const basePath = href.split("?")[0];
         const isGroup = !!item.children?.length;
+        const isOutputGroup = item.key === "output";
 
         // ✅ Active correto (sem deixar tudo vermelho)
         const active = useMemo(() => {
@@ -239,11 +246,24 @@ export default function Shell({ children }: PropsWithChildren) {
 
         const node = item.disabled ? (
             <div className={`${cls} ${indent}`}>{content}</div>
+        ) : (isGroup && compact && isOutputGroup) ? (
+            // ✅ Sidebar recolhida: Output vira botão que abre flyout
+            <button
+                type="button"
+                onClick={(e) => {
+                    e.preventDefault();
+                    setOutputFlyoutOpen((v) => !v);
+                }}
+                className={`${cls} ${indent} w-full text-left`}
+            >
+                {content}
+            </button>
         ) : (
             <Link to={href} className={`${cls} ${indent}`}>
                 {content}
             </Link>
         );
+
 
         return compact ? <Tooltip label={item.label}>{node}</Tooltip> : node;
     }
@@ -276,6 +296,51 @@ export default function Shell({ children }: PropsWithChildren) {
                         </div>
                     ))}
                 </nav>
+
+                {compact && outputFlyoutOpen && (
+                    <div className="fixed inset-0 z-50" onClick={() => setOutputFlyoutOpen(false)}>
+                        {/* painel flutuante */}
+                        <div
+                            className="absolute left-[92px] top-[112px] w-[260px] rounded-2xl border border-smx-line bg-smx-panel shadow-2xl p-3"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="text-xs text-smx-muted px-2 pb-2">Output</div>
+
+                            <div className="space-y-2">
+                                {nav
+                                    .find((x) => x.key === "output")
+                                    ?.children?.map((c) => {
+                                        const href = c.href({ deviceId, ch });
+                                        const active = matchPath({ path: href.split("?")[0], end: true }, pathname);
+
+                                        return (
+                                            <Link
+                                                key={c.key}
+                                                to={href}
+                                                className={`flex items-center gap-3 rounded-xl px-3 py-3 border transition ${active
+                                                        ? "bg-smx-red/15 border-smx-red/40"
+                                                        : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                                                    }`}
+                                            >
+                                                <div
+                                                    className={`grid place-items-center w-10 h-10 rounded-xl border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
+                                                        }`}
+                                                >
+                                                    <Icon
+                                                        name={c.icon}
+                                                        className={active ? "text-smx-red" : "text-smx-muted"}
+                                                        filled={active}
+                                                    />
+                                                </div>
+                                                <div className="font-medium">{c.label}</div>
+                                            </Link>
+                                        );
+                                    })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
 
                 {!compact && (
                     <div className="mt-10 text-xs text-smx-muted">

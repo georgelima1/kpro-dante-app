@@ -264,7 +264,7 @@ function ChannelRow(props: {
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 items-start">
         {/* Badge + Infos */}
         {/* HEADER DO CANAL */}
-        <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-2 w-full">
           {/* Lado esquerdo */}
           <div className="flex items-center gap-3">
             <div className="leading-tight">
@@ -307,7 +307,7 @@ function ChannelRow(props: {
 
 
         {/* Centro: VU (em cima) + Gain (embaixo) */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           {/* ===== VU ===== */}
           <div>
             <div className="flex items-end justify-between text-xs text-smx-muted mb-2">
