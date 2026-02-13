@@ -132,61 +132,7 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      {/* HEADER GERAL do device (igual primeira versão) */}
-      <section className="bg-smx-panel border border-smx-line rounded-2xl p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm text-smx-muted">Status</div>
-            <div className="text-xl font-semibold mt-1">{status.deviceId}</div>
-            <div className="text-xs text-smx-muted mt-1">FW {status.fw}</div>
-          </div>
-
-          <button
-            onClick={() => setPower(!status.powerOn)}
-            className={`px-4 py-2 rounded-xl border transition ${status.powerOn
-              ? "bg-smx-red/20 border-smx-red/40"
-              : "bg-smx-panel2 border-smx-line hover:border-smx-red/30"
-              }`}
-          >
-            <span className="font-medium">{status.powerOn ? "POWER ON" : "POWER OFF"}</span>
-          </button>
-        </div>
-
-        <div className="mt-5 grid sm:grid-cols-3 gap-4">
-          <div className="bg-smx-panel2 border border-smx-line rounded-2xl p-4">
-            <div className="text-xs text-smx-muted">Rede</div>
-            <div className="mt-2 text-sm">
-              WiFi: <span className="text-smx-muted">{status.net.wifi}</span>
-            </div>
-            <div className="text-sm">
-              LAN: <span className="text-smx-muted">{status.net.lan}</span>
-            </div>
-          </div>
-
-          <div className="bg-smx-panel2 border border-smx-line rounded-2xl p-4">
-            <div className="text-xs text-smx-muted">Temperaturas</div>
-            <div className="mt-2 text-sm">
-              Heatsink:{" "}
-              <span className="text-smx-muted">{status.temps.heatsink.toFixed(1)}°C</span>
-            </div>
-            <div className="text-sm">
-              Board: <span className="text-smx-muted">{status.temps.board.toFixed(1)}°C</span>
-            </div>
-          </div>
-
-          <div className="bg-smx-panel2 border border-smx-line rounded-2xl p-4">
-            <div className="text-xs text-smx-muted">Rails</div>
-            <div className="mt-2 text-sm">
-              VBAT: <span className="text-smx-muted">{status.rails.vbat.toFixed(1)}V</span>
-            </div>
-            <div className="text-sm">
-              VBUS: <span className="text-smx-muted">{status.rails.vbus.toFixed(1)}V</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
+    <div className="space-y-8 max-w-8xl">
       {/* ✅ MONITORAMENTO: todos os canais em linhas compactas */}
       <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
         {/* header */}
@@ -364,7 +310,7 @@ function ChannelRow(props: {
               />
             </div>
 
-            <DbScale marks={VU_MARKS} minDb={VU_MIN} maxDb={VU_MAX} insetPx={12} offsetPx={-2} />
+            <DbScale marks={VU_MARKS} minDb={VU_MIN} maxDb={VU_MAX} insetPx={22} offsetPx={-4} />
           </div>
 
           {/* ===== GAIN (grande) ===== */}
@@ -388,7 +334,7 @@ function ChannelRow(props: {
               }}
             />
 
-            <DbScale marks={GAIN_MARKS} minDb={GAIN_MIN} maxDb={GAIN_MAX} insetPx={12} offsetPx={-2} />
+            <DbScale marks={GAIN_MARKS} minDb={GAIN_MIN} maxDb={GAIN_MAX} insetPx={22} offsetPx={-4} />
           </div>
         </div>
       </div>

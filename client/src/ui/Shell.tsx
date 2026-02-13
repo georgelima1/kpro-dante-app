@@ -90,6 +90,23 @@ const nav: NavItem[] = [
     }
 ];
 
+function tempTone(t: number): "ok" | "warn" | "alarm" | "neutral" {
+    // thresholds V0 (ajuste depois)
+    if (t >= 85) return "alarm";
+    if (t >= 70) return "warn";
+    return "ok";
+}
+
+function tempClass(t: number) {
+    if (t >= 85) return "text-smx-red font-semibold";
+    if (t >= 70) return "text-yellow-400 font-semibold";
+    return "text-smx-text";
+}
+
+function Dot() {
+    return <span className="opacity-40">•</span>;
+}
+
 export default function Shell({ children }: PropsWithChildren) {
     const { pathname, search } = useLocation();
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -114,6 +131,38 @@ export default function Shell({ children }: PropsWithChildren) {
         return (m?.params as any)?.id as string | undefined;
     }, [pathname]);
 
+    const isDeviceRoot = useMemo(() => {
+        if (!deviceId) return false;
+        return pathname === `/devices/${deviceId}`;
+    }, [pathname, deviceId]);
+
+    const pageLabel = useMemo(() => {
+        // label da tela atual (só para /devices/:id/*)
+        if (!deviceId) return "";
+        if (isDeviceRoot) return "Dashboard";
+
+        if (pathname.endsWith("/routing")) return "Routing";
+        if (pathname.endsWith("/delay")) return "Delay";
+        if (pathname.endsWith("/eq")) return "Equalizer";
+        if (pathname.endsWith("/speaker")) return "Speaker Preset";
+
+        return ""; // fallback
+    }, [pathname, deviceId, isDeviceRoot]);
+
+    type DeviceStatus = {
+        deviceId: string;
+        fw: string;
+        channelsCount?: number,
+        temps: { heatsink: number; board: number };
+        rails: { vbat: number; vbus: number };
+        net: { wifi: string; lan: string };
+        powerOn: boolean;
+        protections?: { protect: boolean; reason?: string };
+    };
+
+    const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
+
+
     // ch atual vindo do querystring
     const ch = useMemo(() => {
         const sp = new URLSearchParams(search);
@@ -133,6 +182,28 @@ export default function Shell({ children }: PropsWithChildren) {
     useEffect(() => {
         setOutputFlyoutOpen(false);
     }, [pathname]);
+
+    useEffect(() => {
+        let alive = true;
+        if (!deviceId) {
+            setDeviceStatus(null);
+            return;
+        }
+
+        async function load() {
+            try {
+                const r = await fetch(`/api/v1/devices/${deviceId}/status`);
+                const j = await r.json();
+                if (alive) setDeviceStatus(j);
+            } catch {
+                if (alive) setDeviceStatus(null);
+            }
+        }
+
+        load();
+
+    }, [deviceId]);
+
 
     // controla expansão do grupo Output
     const [openOutput, setOpenOutput] = useState(true);
@@ -207,7 +278,7 @@ export default function Shell({ children }: PropsWithChildren) {
 
         const iconNode = (
             <div
-                className={`grid place-items-center w-10 h-10 rounded-xl border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
+                className={`grid place-items-center w-12 h-12 rounded-xl border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
                     } transition`}
             >
                 <Icon
@@ -271,14 +342,30 @@ export default function Shell({ children }: PropsWithChildren) {
 
     function SidebarContent({ compact }: { compact: boolean }) {
         return (
-            <aside className={`h-full bg-smx-panel border-r border-smx-line ${compact ? "p-4" : "p-6"}`}>
-                <div className={compact ? "mb-6" : "mb-8"}>
-                    <div className={compact ? "text-lg font-semibold" : "text-2xl font-semibold tracking-wide"}>
-                        <span className="text-smx-red">Soundmax</span>{" "}
-                        {!compact && <span className="text-smx-muted font-normal">Control</span>}
-                    </div>
-                    {!compact && <div className="text-xs text-smx-muted mt-1">LAN • Multi-device • ESP32</div>}
+            <aside className={`h-full bg-smx-panel border-r border-smx-line ${compact ? "p-3" : "p-6"}`}>
+                <div className={compact ? "mb-6 text-center" : "mb-8"}>
+                    {compact ? (
+                        <>
+                            <div className="text-[15px] font-semibold tracking-wide leading-none text-smx-red">
+                                Soundmax
+                            </div>
+                            <div className="text-[11px] text-smx-muted mt-1 tracking-wider">
+                                Control
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="text-2xl font-semibold tracking-wide">
+                                <span className="text-smx-red">Soundmax</span>{" "}
+                                <span className="text-smx-muted font-normal">Control</span>
+                            </div>
+                            <div className="text-xs text-smx-muted mt-1">
+                                LAN • Multi-device • ESP32
+                            </div>
+                        </>
+                    )}
                 </div>
+
 
                 <nav className="space-y-3">
                     {nav.map((item) => (
@@ -318,8 +405,8 @@ export default function Shell({ children }: PropsWithChildren) {
                                                 key={c.key}
                                                 to={href}
                                                 className={`flex items-center gap-3 rounded-xl px-3 py-3 border transition ${active
-                                                        ? "bg-smx-red/15 border-smx-red/40"
-                                                        : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                                                    ? "bg-smx-red/15 border-smx-red/40"
+                                                    : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
                                                     }`}
                                             >
                                                 <div
@@ -371,9 +458,91 @@ export default function Shell({ children }: PropsWithChildren) {
                         <span className="text-smx-red">Soundmax</span>{" "}
                         <span className="text-smx-muted">Control</span>
                         {deviceId && (
-                            <div className="text-[11px] text-smx-muted font-normal mt-0.5">
-                                Device: <span className="text-smx-text">{deviceId}</span> • CH{" "}
-                                <span className="text-smx-text">{ch}</span>
+                            <div className="mt-1">
+                                {deviceStatus ? (
+                                    <div className="text-[11px] text-smx-muted font-normal flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                                        {/* Linha principal */}
+                                        <span className="text-smx-text font-semibold">{deviceStatus.deviceId}</span>
+
+                                        {/* No dashboard: mostra X CH. Em telas por canal: mostra CH N + Page */}
+                                        {isDeviceRoot ? (
+                                            <>
+                                                <Dot />
+                                                <span className="text-smx-text font-medium">
+                                                    {deviceStatus.channelsCount ? `${deviceStatus.channelsCount} CH` : ""}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Dot />
+                                                <span className="text-smx-text font-medium">CH {ch}</span>
+                                                {pageLabel && (
+                                                    <>
+                                                        <Dot />
+                                                        <span className="text-smx-text font-medium">{pageLabel}</span>
+                                                    </>
+                                                )}
+                                            </>
+                                        )}
+
+                                        <Dot />
+                                        <span>
+                                            FW <span className="text-smx-text">{deviceStatus.fw}</span>
+                                        </span>
+
+                                        <Dot />
+                                        <span>
+                                            LAN <span className="text-smx-text">{deviceStatus.net.lan || "—"}</span>
+                                        </span>
+
+                                        <Dot />
+                                        <span>
+                                            WiFi <span className="text-smx-text">{deviceStatus.net.wifi || "—"}</span>
+                                        </span>
+
+                                        <Dot />
+                                        <span>
+                                            HS{" "}
+                                            <span className={tempClass(deviceStatus.temps.heatsink)}>
+                                                {deviceStatus.temps.heatsink.toFixed(1)}°C
+                                            </span>
+                                        </span>
+
+                                        <Dot />
+                                        <span>
+                                            BD{" "}
+                                            <span className={tempClass(deviceStatus.temps.board)}>
+                                                {deviceStatus.temps.board.toFixed(1)}°C
+                                            </span>
+                                        </span>
+
+                                        <Dot />
+                                        <span>
+                                            VBAT <span className="text-smx-text">{deviceStatus.rails.vbat.toFixed(1)}V</span>
+                                        </span>
+
+                                        <Dot />
+                                        <span>
+                                            VBUS <span className="text-smx-text">{deviceStatus.rails.vbus.toFixed(1)}V</span>
+                                        </span>
+
+                                        <Dot />
+                                        <span className={deviceStatus.powerOn ? "text-green-500" : "text-smx-red"}>
+                                            {deviceStatus.powerOn ? "ON" : "OFF"}
+                                        </span>
+
+                                        {deviceStatus.protections?.protect && (
+                                            <>
+                                                <Dot />
+                                                <span className="text-smx-red font-semibold">
+                                                    PROTECT {deviceStatus.protections.reason || ""}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="text-[11px] text-smx-muted text-center">Carregando status…</div>
+                                )}
                             </div>
                         )}
                     </div>
