@@ -20,7 +20,7 @@ export default function DeviceLayout() {
   return (
     <DeviceProvider deviceId={id}>
       <div className="space-y-6">
-        <ChannelHeader deviceId={id} ch={ch} onSelectCh={onSelectCh} />
+        <ChannelHeader />
         <Outlet />
       </div>
     </DeviceProvider>

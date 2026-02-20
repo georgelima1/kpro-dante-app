@@ -156,6 +156,10 @@ export default function Shell({ children }: PropsWithChildren) {
         temps: { heatsink: number; board: number };
         rails: { vbat: number; vbus: number };
         net: { wifi: string; lan: string };
+        dsp: {
+            sampleRate: number,
+            delayMaxMs: number
+          };
         powerOn: boolean;
         protections?: { protect: boolean; reason?: string };
     };
@@ -439,9 +443,9 @@ export default function Shell({ children }: PropsWithChildren) {
     }
 
     return (
-        <div className="min-h-screen bg-smx-bg">
-            {/* TOP BAR */}
-            <div className="sticky top-0 z-40 bg-smx-panel/95 backdrop-blur border-b border-smx-line">
+        <div className="h-screen bg-smx-bg flex flex-col">
+            {/* TOP BAR (fixa) */}
+            <div className="shrink-0 sticky top-0 z-40 bg-smx-panel/95 backdrop-blur border-b border-smx-line">
                 <div className="flex items-center justify-between px-4 py-3">
                     <button
                         onClick={() => {
@@ -561,46 +565,52 @@ export default function Shell({ children }: PropsWithChildren) {
             </div>
 
             {/* Desktop */}
-            <div className="hidden md:grid md:grid-cols-[auto_1fr] min-h-[calc(100vh-56px)]">
-                <div style={{ width: sidebarWidth, transition: "width 220ms ease" }}>
-                    <SidebarContent compact={collapsed} />
-                </div>
-                <main className="p-4 md:p-8">{children}</main>
-            </div>
-
-            {/* Mobile */}
-            <div className="md:hidden">
-                <main className="p-4">{children}</main>
-            </div>
-
-            {/* Drawer Mobile */}
-            <div className={`md:hidden fixed inset-0 z-50 ${drawerOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
-                <div
-                    className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ${drawerOpen ? "opacity-100" : "opacity-0"
-                        }`}
-                    onClick={() => setDrawerOpen(false)}
-                />
-                <div
-                    className={`absolute left-0 top-0 h-full w-[85%] max-w-[340px] shadow-2xl transition-transform duration-200 ease-out ${drawerOpen ? "translate-x-0" : "-translate-x-full"
-                        }`}
-                >
-                    <div className="flex items-center justify-between bg-smx-panel border-b border-smx-line p-4">
-                        <div className="text-base font-semibold">
-                            <span className="text-smx-red">Soundmax</span>{" "}
-                            <span className="text-smx-muted">Control</span>
-                        </div>
-                        <button
-                            onClick={() => setDrawerOpen(false)}
-                            className="p-2 rounded-xl border border-smx-line bg-smx-panel2 hover:border-smx-red/30 transition"
-                            aria-label="Fechar menu"
-                        >
-                            <CloseIcon />
-                        </button>
+            <div className="flex-1 min-h-0">
+                <div className="hidden md:grid md:grid-cols-[auto_1fr] min-h-[calc(100vh-56px)]">
+                    <div style={{ width: sidebarWidth, transition: "width 220ms ease" }} className="h-full">
+                        <SidebarContent compact={collapsed} />
                     </div>
+                    <main className="h-full min-h-0 overflow-y-auto">
+                        <div className="p-4 md:p-8">{children}</div>
+                    </main>
+                </div>
 
-                    <SidebarContent compact={false} />
+                {/* Mobile */}
+                <div className="md:hidden h-full">
+                    <main className="h-full min-h-0 overflow-y-auto">
+                        <div className="p-4">{children}</div>
+                    </main>
+                </div>
+
+                {/* Drawer Mobile */}
+                <div className={`md:hidden fixed inset-0 z-50 ${drawerOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+                    <div
+                        className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ${drawerOpen ? "opacity-100" : "opacity-0"
+                            }`}
+                        onClick={() => setDrawerOpen(false)}
+                    />
+                    <div
+                        className={`absolute left-0 top-0 h-full w-[85%] max-w-[340px] shadow-2xl transition-transform duration-200 ease-out ${drawerOpen ? "translate-x-0" : "-translate-x-full"
+                            }`}
+                    >
+                        <div className="flex items-center justify-between bg-smx-panel border-b border-smx-line p-4">
+                            <div className="text-base font-semibold">
+                                <span className="text-smx-red">Soundmax</span>{" "}
+                                <span className="text-smx-muted">Control</span>
+                            </div>
+                            <button
+                                onClick={() => setDrawerOpen(false)}
+                                className="p-2 rounded-xl border border-smx-line bg-smx-panel2 hover:border-smx-red/30 transition"
+                                aria-label="Fechar menu"
+                            >
+                                <CloseIcon />
+                            </button>
+                        </div>
+
+                        <SidebarContent compact={false} />
+                    </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

@@ -1,280 +1,267 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
-import ChannelHeader from "../ui/ChannelHeader";
+import React, { useMemo, useState } from "react";
+import { useDevice } from "../state/DeviceContext";
 
-type DelayUnit = "samples" | "ms" | "feet" | "meter";
+type Unit = "samples" | "ms" | "feet" | "meter";
 
-type DelayState = {
-  enabled: boolean;
-  valueSamples: number; // fonte de verdade
-};
+const SPEED_OF_SOUND_MS = 343; // m/s
+const MS_PER_SECOND = 1000;
+const FEET_PER_METER = 3.28084;
 
-const SR = 48000;            // sample rate (ajuste quando vier do device)
-const SPEED_M_S = 343;       // velocidade do som (m/s)
-const MAX_MS = 100;          // igual ao print
-const MAX_SAMPLES = Math.round((SR * MAX_MS) / 1000);
-
-function clamp(n: number, a: number, b: number) {
-  return Math.max(a, Math.min(b, n));
-}
-
-function samplesToMs(samples: number) {
-  return (samples / SR) * 1000;
-}
-function msToSamples(ms: number) {
-  return Math.round((ms / 1000) * SR);
-}
-function samplesToMeters(samples: number) {
-  const sec = samples / SR;
-  return sec * SPEED_M_S;
-}
-function metersToSamples(m: number) {
-  const sec = m / SPEED_M_S;
-  return Math.round(sec * SR);
-}
-function metersToFeet(m: number) {
-  return m * 3.28084;
-}
-function feetToMeters(ft: number) {
-  return ft / 3.28084;
-}
-
-function formatDec(n: number, dec: number) {
-  return n.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+function clamp(v: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, v));
 }
 
 export default function DelayPage() {
-  const { id } = useParams();
-  const [sp, setSp] = useSearchParams();
-  const ch = Number(sp.get("ch") ?? "1");
+  const { status, setStatus, deviceId, ch } = useDevice(); // se no seu ctx não tiver, veja nota abaixo
+  const channel = status?.channels?.find((c) => c.ch === ch);
 
-  if (!id) return <div className="text-sm text-smx-muted">Device não informado.</div>;
+  const sr = status?.dsp?.sampleRate ?? 48000;
+  const maxMs = status?.dsp?.delayMaxMs ?? 100;
 
-  return (
-    <div className="space-y-6 max-w-6xl">
-      <DelayPanel deviceId={id} ch={ch} />
-    </div>
-  );
-}
+  // max samples baseado no SR + maxMs
+  const maxSamples = useMemo(() => Math.round((sr * maxMs) / 1000), [sr, maxMs]);
 
-function DelayPanel({ deviceId, ch }: { deviceId: string; ch: number }) {
-  const [unit, setUnit] = useState<DelayUnit>("ms");
-  const [state, setState] = useState<DelayState>({ enabled: true, valueSamples: 0 });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const enabled = channel?.delay?.enabled ?? true;
+  const valueSamples = channel?.delay?.valueSamples ?? 0;
 
-  // carrega config do canal
-  useEffect(() => {
-    let ok = true;
-    setLoading(true);
-    fetch(`/api/v1/devices/${deviceId}/ch/${ch}/delay`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (!ok) return;
-        setState({
-          enabled: !!j.enabled,
-          valueSamples: clamp(Number(j.valueSamples ?? 0), 0, MAX_SAMPLES)
-        });
-      })
-      .catch(() => {})
-      .finally(() => ok && setLoading(false));
-    return () => {
-      ok = false;
-    };
-  }, [deviceId, ch]);
+  const [unit, setUnit] = useState<Unit>("ms");
 
-  const ms = useMemo(() => samplesToMs(state.valueSamples), [state.valueSamples]);
-  const meters = useMemo(() => samplesToMeters(state.valueSamples), [state.valueSamples]);
-  const feet = useMemo(() => metersToFeet(meters), [meters]);
+  // conversões
+  const valueMs = useMemo(() => (valueSamples / sr) * 1000, [valueSamples, sr]);
+  const valueMeters = useMemo(() => (valueMs / 1000) * SPEED_OF_SOUND_MS, [valueMs]);
+  const valueFeet = useMemo(() => valueMeters * FEET_PER_METER, [valueMeters]);
 
+  // slider sempre manda samples pro server
   const sliderValue = useMemo(() => {
     switch (unit) {
       case "samples":
-        return state.valueSamples;
+        return valueSamples;
       case "ms":
-        return ms;
-      case "meter":
-        return meters;
+        return valueMs;
       case "feet":
-        return feet;
+        return valueFeet;
+      case "meter":
+        return valueMeters;
     }
-  }, [unit, state.valueSamples, ms, meters, feet]);
+  }, [unit, valueSamples, valueMs, valueFeet, valueMeters]);
 
   const sliderMax = useMemo(() => {
     switch (unit) {
       case "samples":
-        return MAX_SAMPLES;
+        return maxSamples;
       case "ms":
-        return MAX_MS;
-      case "meter":
-        return samplesToMeters(MAX_SAMPLES);
+        return maxMs;
       case "feet":
-        return metersToFeet(samplesToMeters(MAX_SAMPLES));
+        return (maxMs / 1000) * SPEED_OF_SOUND_MS * FEET_PER_METER;
+      case "meter":
+        return (maxMs / 1000) * SPEED_OF_SOUND_MS;
     }
-  }, [unit]);
+  }, [unit, maxSamples, maxMs]);
 
-  function setFromSlider(v: number) {
-    let nextSamples = 0;
-    if (unit === "samples") nextSamples = Math.round(v);
-    if (unit === "ms") nextSamples = msToSamples(v);
-    if (unit === "meter") nextSamples = metersToSamples(v);
-    if (unit === "feet") nextSamples = metersToSamples(feetToMeters(v));
-
-    nextSamples = clamp(nextSamples, 0, MAX_SAMPLES);
-    setState((s) => ({ ...s, valueSamples: nextSamples }));
-  }
-
-  async function save(patch: Partial<DelayState>) {
-    setSaving(true);
-    try {
-      const r = await fetch(`/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch)
-      });
-      const j = await r.json();
-      setState({
-        enabled: !!j.enabled,
-        valueSamples: clamp(Number(j.valueSamples ?? 0), 0, MAX_SAMPLES)
-      });
-    } finally {
-      setSaving(false);
+  function toSamplesFromUnit(v: number) {
+    switch (unit) {
+      case "samples":
+        return Math.round(v);
+      case "ms":
+        return Math.round((v / 1000) * sr);
+      case "feet": {
+        const meters = v / FEET_PER_METER;
+        const ms = (meters / SPEED_OF_SOUND_MS) * 1000;
+        return Math.round((ms / 1000) * sr);
+      }
+      case "meter": {
+        const ms = (v / SPEED_OF_SOUND_MS) * 1000;
+        return Math.round((ms / 1000) * sr);
+      }
     }
   }
 
-  if (loading) {
-    return <div className="text-sm text-smx-muted">Carregando delay...</div>;
+  async function setDelayEnabled(next: boolean) {
+    if (!deviceId || !ch) return;
+    const r = await fetch(`/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: next })
+    });
+    const j = await r.json();
+
+    setStatus((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        channels: s.channels.map((c) => (c.ch === ch ? { ...c, delay: j.delay } : c))
+      };
+    });
   }
+
+  async function setDelaySamples(samples: number) {
+    if (!deviceId || !ch) return;
+    const clamped = clamp(samples, 0, maxSamples);
+
+    const r = await fetch(`/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ valueSamples: clamped })
+    });
+    const j = await r.json();
+
+    setStatus((s) => {
+      if (!s) return s;
+      return {
+        ...s,
+        channels: s.channels.map((c) => (c.ch === ch ? { ...c, delay: j.delay } : c))
+      };
+    });
+  }
+
+  if (!status || !channel) return null;
+
+  // visual disabled (cinza) + sem clique
+  const disabledWrap =
+    !enabled
+      ? "opacity-45 grayscale pointer-events-none select-none"
+      : "opacity-100";
+
+  const tabBase =
+    "flex-1 py-3 text-sm font-semibold rounded-2xl transition border";
+  const tabActive =
+    "bg-smx-red/20 border-smx-red/40 text-smx-text";
+  const tabIdle =
+    "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30";
 
   return (
-    <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
-      {/* header da seção */}
-      <div className="px-6 py-4 border-b border-smx-line flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold">Delay</span>
-          <span className="text-xs text-smx-muted">CH {ch}</span>
-        </div>
-
-        {/* toggle enable */}
-        <button
-          onClick={() => save({ enabled: !state.enabled })}
-          className={`relative w-12 h-7 rounded-full border transition ${
-            state.enabled ? "bg-smx-red/25 border-smx-red/40" : "bg-smx-panel2 border-smx-line"
-          } ${saving ? "opacity-70 pointer-events-none" : ""}`}
-          aria-label="Ativar/Desativar Delay"
-          title="Ativar/Desativar Delay"
-        >
-          <span
-            className={`absolute top-0.5 w-6 h-6 rounded-full bg-white/90 transition-transform ${
-              state.enabled ? "translate-x-[22px]" : "translate-x-0.5"
-            }`}
-          />
-        </button>
-      </div>
-
-      <div className="p-6 space-y-6">
-        {/* UNIT */}
-        <div>
-          <div className="text-xs text-smx-muted font-semibold tracking-wide mb-2">UNIT</div>
-
-          <div className="grid grid-cols-4 bg-smx-panel2 border border-smx-line rounded-xl overflow-hidden">
-            <UnitTab label="Samples" active={unit === "samples"} onClick={() => setUnit("samples")} />
-            <UnitTab label="Ms" active={unit === "ms"} onClick={() => setUnit("ms")} />
-            <UnitTab label="Feet" active={unit === "feet"} onClick={() => setUnit("feet")} />
-            <UnitTab label="Meter" active={unit === "meter"} onClick={() => setUnit("meter")} />
-          </div>
-        </div>
-
-        {/* slider card */}
-        <div className="bg-black/10 border border-smx-line rounded-2xl p-5">
-          <div className="flex items-center justify-between text-sm font-semibold">
-            <div className="flex items-center gap-2">
-              <span className="text-smx-text">Delay</span>
-              <span className="text-xs text-smx-muted">
-                [{unit === "samples" ? "samples" : unit}]
-              </span>
-            </div>
-
-            <div className="text-smx-text">
-              {unit === "samples" ? (
-                <>
-                  {Math.round(sliderValue)} <span className="text-xs text-smx-muted">samples</span>
-                </>
-              ) : unit === "ms" ? (
-                <>
-                  {formatDec(sliderValue, 2)} <span className="text-xs text-smx-muted">ms</span>
-                </>
-              ) : unit === "feet" ? (
-                <>
-                  {formatDec(sliderValue, 2)} <span className="text-xs text-smx-muted">ft</span>
-                </>
-              ) : (
-                <>
-                  {formatDec(sliderValue, 3)} <span className="text-xs text-smx-muted">m</span>
-                </>
-              )}
+    <div className="max-w-6xl space-y-6">
+      <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
+        {/* header */}
+        <div className="px-5 py-4 border-b border-smx-line flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-base font-semibold">Delay</div>
+            <div className="text-xs text-smx-muted">
+              SR {sr} Hz • Max {maxMs} ms
             </div>
           </div>
 
-          <div className={`mt-4 ${!state.enabled ? "opacity-50 pointer-events-none" : ""}`}>
-            <input
-              type="range"
-              min={0}
-              max={sliderMax}
-              step={unit === "samples" ? 1 : 0.01}
-              value={sliderValue}
-              onChange={(e) => setFromSlider(Number(e.target.value))}
-              onMouseUp={() => save({ valueSamples: state.valueSamples })}
-              onTouchEnd={() => save({ valueSamples: state.valueSamples })}
-              className="w-full smx-range smx-range-fill smx-range-red"
-              style={{
-                ["--fill" as any]: `${(sliderValue / sliderMax) * 100}%`
-              }}
+          {/* switch */}
+          <button
+            onClick={() => setDelayEnabled(!enabled)}
+            className={`relative w-14 h-8 rounded-full border transition
+              ${enabled ? "bg-smx-red/30 border-smx-red/50" : "bg-smx-panel2 border-smx-line"}
+            `}
+            aria-label="Delay On/Off"
+            title="Delay On/Off"
+          >
+            <span
+              className={`absolute top-1 left-1 w-6 h-6 rounded-full transition-transform
+                ${enabled ? "translate-x-6 bg-white" : "translate-x-0 bg-white/80"}
+              `}
             />
+          </button>
+        </div>
 
-            {/* marks 0-25-50-75-100 (igual ao print) */}
-            <div className="mt-2 flex justify-between text-[11px] text-smx-muted px-1">
-              <span>0</span>
-              <span>{Math.round(sliderMax * 0.25)}</span>
-              <span>{Math.round(sliderMax * 0.5)}</span>
-              <span>{Math.round(sliderMax * 0.75)}</span>
-              <span>{Math.round(sliderMax)}</span>
+        {/* content (cinza quando OFF) */}
+        <div className="p-5 space-y-5">
+          <div className={disabledWrap}>
+            <div className="text-xs text-smx-muted mb-2">UNIT</div>
+
+            {/* tabs 4 unidades */}
+            <div className="flex gap-2 bg-black/10 border border-smx-line rounded-2xl p-2">
+              <button
+                className={`${tabBase} ${unit === "samples" ? tabActive : tabIdle}`}
+                onClick={() => setUnit("samples")}
+              >
+                Samples
+              </button>
+              <button
+                className={`${tabBase} ${unit === "ms" ? tabActive : tabIdle}`}
+                onClick={() => setUnit("ms")}
+              >
+                Ms
+              </button>
+              <button
+                className={`${tabBase} ${unit === "feet" ? tabActive : tabIdle}`}
+                onClick={() => setUnit("feet")}
+              >
+                Feet
+              </button>
+              <button
+                className={`${tabBase} ${unit === "meter" ? tabActive : tabIdle}`}
+                onClick={() => setUnit("meter")}
+              >
+                Meter
+              </button>
+            </div>
+
+            {/* slider card */}
+            <div className="mt-4 bg-black/10 border border-smx-line rounded-2xl p-5">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold">
+                  Delay{" "}
+                  <span className="text-smx-muted font-normal">
+                    [{unit === "samples" ? "samples" : unit}]
+                  </span>
+                </div>
+                <div className="text-lg font-semibold">
+                  {unit === "samples" ? valueSamples : sliderValue.toFixed(2)}{" "}
+                  <span className="text-smx-muted text-sm font-normal">
+                    {unit === "samples" ? "" : unit}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <input
+                  type="range"
+                  min={0}
+                  max={sliderMax}
+                  step={unit === "samples" ? 1 : unit === "ms" ? 0.01 : 0.01}
+                  value={sliderValue}
+                  onChange={(e) => {
+                    const raw = Number(e.target.value);
+                    const samples = toSamplesFromUnit(raw);
+                    setDelaySamples(samples);
+                  }}
+                  className="w-full smx-range smx-range-fill smx-range-red"
+                  style={{
+                    ["--fill" as any]: `${(sliderValue / sliderMax) * 100}%`
+                  }}
+                />
+
+                <div className="mt-2 flex justify-between text-xs text-smx-muted">
+                  <span>0</span>
+                  <span>{unit === "samples" ? maxSamples : Math.round(sliderMax)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* equivalências */}
+            <div className="text-sm text-smx-muted space-y-2 mt-4">
+              <div>
+                Delay equals{" "}
+                <span className="text-smx-text font-semibold">{valueSamples}</span> samples
+              </div>
+              <div>
+                Delay equals{" "}
+                <span className="text-smx-text font-semibold">{valueMs.toFixed(2)}</span> ms
+              </div>
+              <div>
+                Delay equals{" "}
+                <span className="text-smx-text font-semibold">{valueFeet.toFixed(2)}</span> feet (aprox.)
+              </div>
+              <div>
+                Delay equals{" "}
+                <span className="text-smx-text font-semibold">{valueMeters.toFixed(2)}</span> meter (aprox.)
+              </div>
             </div>
           </div>
+
+          {/* dica quando OFF */}
+          {!enabled && (
+            <div className="text-xs text-smx-muted">
+              Delay está desativado (OFF). Ative o switch para editar.
+            </div>
+          )}
         </div>
-
-        {/* equals */}
-        <div className="space-y-2 text-sm">
-          <Line label="Delay equals" value={`${Math.round(state.valueSamples)} samples`} />
-          <Line label="Delay equals" value={`${formatDec(ms, 2)} ms`} />
-          <Line label="Delay equals" value={`${formatDec(feet, 2)} feet`} />
-          <Line label="Delay equals" value={`${formatDec(meters, 3)} meter`} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function UnitTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`py-3 text-sm font-semibold border-r last:border-r-0 transition ${
-        active
-          ? "bg-[#0b6bff] text-white"
-          : "bg-transparent text-smx-text hover:bg-black/10"
-      } border-smx-line`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function Line({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-smx-text">
-      <span className="font-semibold">{label}</span> <span className="text-smx-text">{value}</span>
+      </section>
     </div>
   );
 }

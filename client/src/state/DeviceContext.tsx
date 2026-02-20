@@ -5,6 +5,7 @@ export type ChannelStatus = {
   name?: string;
   audio: { mute: boolean; gainDb: number; polarity: 1 | -1 };
   meters: { rmsDb: number; peakDb: number };
+  delay: { enabled: boolean; valueSamples: number };
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
 };
@@ -15,17 +16,26 @@ export type DeviceStatus = {
   net: { wifi: string; lan: string };
   temps: { heatsink: number; board: number };
   rails: { vbat: number; vbus: number };
+  dsp: {
+    sampleRate: number,
+    delayMaxMs: number
+  },
   powerOn: boolean;
   channelsCount: number;
   channels: ChannelStatus[];
 };
 
 type Ctx = {
+  deviceId: string;
+
   status: DeviceStatus | null;
   setStatus: React.Dispatch<React.SetStateAction<DeviceStatus | null>>;
+
+  ch: number;
+  setCh: (ch: number) => void;
 };
 
-const DeviceCtx = createContext<Ctx | null>(null);
+const DeviceCtx = createContext<Ctx | undefined>(undefined);
 
 export function DeviceProvider({
   deviceId,
@@ -35,6 +45,7 @@ export function DeviceProvider({
   children: React.ReactNode;
 }) {
   const [status, setStatus] = useState<DeviceStatus | null>(null);
+  const [ch, setCh] = useState<number>(1);
 
   useEffect(() => {
     let alive = true;
@@ -49,7 +60,15 @@ export function DeviceProvider({
   }, [deviceId]);
 
   const value = useMemo(() => ({ status, setStatus }), [status]);
-  return <DeviceCtx.Provider value={value}>{children}</DeviceCtx.Provider>;
+  return <DeviceCtx.Provider
+    value={{
+      deviceId,
+      status,
+      setStatus,
+      ch,
+      setCh
+    }}
+  >{children}</DeviceCtx.Provider>;
 }
 
 export function useDevice() {

@@ -2,17 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import ChannelStrip from "./ChannelStrip";
 import { useDevice } from "../state/DeviceContext";
 
-export default function ChannelHeader({
-  deviceId,
-  ch,
-  onSelectCh
-}: {
-  deviceId: string;
-  ch: number;
-  onSelectCh: (ch: number) => void;
-}) {
-  const { status, setStatus } = useDevice();
-  const wsRef = useRef<WebSocket | null>(null);
+export default function ChannelHeader() {
+  const { status, setStatus, deviceId, ch, setCh } = useDevice();
 
   // ✅ Peak Hold (igual dashboard) – por canal selecionado
   const [peakHoldDb, setPeakHoldDb] = useState<number>(-80);
@@ -31,7 +22,6 @@ export default function ChannelHeader({
 
   useEffect(() => {
     const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
 
     ws.onmessage = (ev) => {
       try {
@@ -153,7 +143,7 @@ export default function ChannelHeader({
   if (!status || !channel) return null;
 
   return (
-    <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden sticky top-[56px] z-30">
+    <section className="bg-smx-panel/95 backdrop-blur border border-smx-line rounded-2xl p-4 md:p-6 sticky top-0 z-30">
       {/* Top: Tabs de canal (mantém, porque nessa tela você seleciona CH) */}
       <div className="px-5 py-3 border-b border-smx-line flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -163,7 +153,7 @@ export default function ChannelHeader({
             return (
               <button
                 key={n}
-                onClick={() => onSelectCh(n)}
+                onClick={() => setCh(n)}
                 className={`px-4 py-2 rounded-xl border text-sm font-semibold transition ${active
                   ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
                   : "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30"

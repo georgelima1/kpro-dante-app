@@ -3,12 +3,14 @@ import cors from "cors";
 import { WebSocketServer } from "ws";
 import http from "http";
 
+// -------------------- TYPES --------------------
+
 type ChannelStatus = {
   ch: number;
   name?: string;
   audio: { mute: boolean; gainDb: number; polarity: 1 | -1 };
   meters: { rmsDb: number; peakDb: number };
-  delay: { enabled: boolean, valueSamples: number },
+  delay: { enabled: boolean; valueSamples: number };
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
 };
@@ -21,13 +23,37 @@ type DeviceStatus = {
   rails: { vbat: number; vbus: number };
   powerOn: boolean;
   channelsCount: number;
-  dsp: { sampleRate: number, delayMaxMs: number };
+  dsp: { sampleRate: number; delayMaxMs: number };
   channels: ChannelStatus[];
 };
+
+// -------------------- APP --------------------
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// -------------------- UTILS --------------------
+
+function clamp(v: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function getCh(dev: DeviceStatus, ch: number) {
+  const c = dev.channels.find((x) => x.ch === ch);
+  if (!c) throw new Error("Channel not found");
+  return c;
+}
+
+function maxSamples(dev: DeviceStatus) {
+  return Math.round((dev.dsp.sampleRate * dev.dsp.delayMaxMs) / 1000);
+}
+
+function jitter(center: number, amp: number) {
+  return center + (Math.random() * 2 - 1) * amp;
+}
+
+// -------------------- MOCK DEVICES --------------------
 
 const DEVICES: Record<string, DeviceStatus> = {
   "SMX-KPRO-001": makeDevice("SMX-KPRO-001", 2),
@@ -42,11 +68,15 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
     temps: { heatsink: 42.3, board: 38.8 },
     rails: { vbat: 12.6, vbus: 5.1 },
     powerOn: true,
+
+    // 👇 vem do "hardware"
     dsp: {
       sampleRate: 48000,
       delayMaxMs: 100
     },
+
     channelsCount,
+
     channels: Array.from({ length: channelsCount }).map((_, i) => {
       const ch = i + 1;
       return {
@@ -54,7 +84,13 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
         name: `CH${ch}`,
         audio: { mute: false, gainDb: -24, polarity: 1 },
         meters: { rmsDb: -80, peakDb: -80 },
-        delay: { enabled: true, valueSamples: 0 },
+
+        // 👇 DELAY POR CANAL
+        delay: {
+          enabled: true,
+          valueSamples: 0
+        },
+
         flags: { clip: false, limit: false, protect: false, reason: "" },
         route: { from: "Input 1", to: `Out ${ch}` }
       };
@@ -62,10 +98,10 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
   };
 }
 
-// -------- REST --------
+// -------------------- REST --------------------
 
 app.get("/api/v1/devices", (req, res) => {
-  const list = Object.values(DEVICES).map(d => ({
+  const list = Object.values(DEVICES).map((d) => ({
     id: d.deviceId,
     name: d.deviceId,
     model: "K Pro",
@@ -76,12 +112,14 @@ app.get("/api/v1/devices", (req, res) => {
   res.json({ devices: list });
 });
 
+// 👇 STATUS (AGORA COM DSP + DELAY)
 app.get("/api/v1/devices/:id/status", (req, res) => {
   const d = DEVICES[req.params.id];
   if (!d) return res.status(404).json({ error: "device not found" });
   res.json(d);
 });
 
+// POWER
 app.post("/api/v1/devices/:id/power", (req, res) => {
   const d = DEVICES[req.params.id];
   if (!d) return res.status(404).json({ error: "device not found" });
@@ -89,12 +127,13 @@ app.post("/api/v1/devices/:id/power", (req, res) => {
   res.json({ powerOn: d.powerOn });
 });
 
+// AUDIO
 app.post("/api/v1/devices/:id/ch/:ch/audio", (req, res) => {
   const d = DEVICES[req.params.id];
   if (!d) return res.status(404).json({ error: "device not found" });
 
   const chNum = Number(req.params.ch);
-  const ch = d.channels.find(c => c.ch === chNum);
+  const ch = d.channels.find((c) => c.ch === chNum);
   if (!ch) return res.status(404).json({ error: "channel not found" });
 
   const { mute, gainDb, polarity } = req.body ?? {};
@@ -102,15 +141,70 @@ app.post("/api/v1/devices/:id/ch/:ch/audio", (req, res) => {
   if (typeof gainDb === "number") ch.audio.gainDb = clamp(gainDb, -48, 0);
   if (polarity === 1 || polarity === -1) ch.audio.polarity = polarity;
 
-  // retorna só o audio atualizado (como você já usa no client)
   res.json({ audio: ch.audio });
 });
 
-function clamp(v: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, v));
-}
+// -------------------- DELAY --------------------
 
-// -------- WS (VU/clip/limit/protect em tempo real) --------
+// GET DELAY
+app.get("/api/v1/devices/:id/ch/:ch/delay", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  let ch;
+  try {
+    ch = getCh(d, chNum);
+  } catch {
+    return res.status(404).json({ error: "channel not found" });
+  }
+
+  res.json({
+    enabled: ch.delay.enabled,
+    valueSamples: ch.delay.valueSamples,
+    sampleRate: d.dsp.sampleRate,
+    maxMs: d.dsp.delayMaxMs,
+    maxSamples: maxSamples(d)
+  });
+});
+
+// POST DELAY
+app.post("/api/v1/devices/:id/ch/:ch/delay", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  let ch;
+  try {
+    ch = getCh(d, chNum);
+  } catch {
+    return res.status(404).json({ error: "channel not found" });
+  }
+
+  const maxS = maxSamples(d);
+
+  if (typeof req.body.enabled === "boolean") {
+    ch.delay.enabled = req.body.enabled;
+  }
+
+  if (typeof req.body.valueSamples === "number") {
+    ch.delay.valueSamples = clamp(
+      Math.round(req.body.valueSamples),
+      0,
+      maxS
+    );
+  }
+
+  res.json({
+    enabled: ch.delay.enabled,
+    valueSamples: ch.delay.valueSamples,
+    sampleRate: d.dsp.sampleRate,
+    maxMs: d.dsp.delayMaxMs,
+    maxSamples: maxS
+  });
+});
+
+// -------------------- WS --------------------
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
@@ -122,30 +216,26 @@ wss.on("connection", (ws, req) => {
   const d = DEVICES[deviceId];
 
   if (!d) {
-    ws.send(JSON.stringify({ t: "err", message: "device not found" }));
     ws.close();
     return;
   }
 
   const chFilter = chParam ? Number(chParam) : null;
 
-  // manda VU a cada 80ms (bem fluido)
   const timer = setInterval(() => {
     const channelsToSend = chFilter
-      ? d.channels.filter(c => c.ch === chFilter)
+      ? d.channels.filter((c) => c.ch === chFilter)
       : d.channels;
 
     for (const c of channelsToSend) {
-      // gera um VU “musical” fake (respeitando gain)
-      const base = -28 + (c.audio.gainDb / 3); // influencia do gain
+      const base = -28 + c.audio.gainDb / 3;
       const rms = jitter(base, 6);
       const peak = rms + Math.random() * 6;
 
       const clip = peak > 1.5;
       const limit = peak > -0.5 && peak <= 1.5;
-      const protect = d.powerOn ? false : true;
+      const protect = !d.powerOn;
 
-      // mantém no estado (pra UI usar também)
       c.meters.rmsDb = rms;
       c.meters.peakDb = peak;
       c.flags.clip = clip;
@@ -172,12 +262,9 @@ wss.on("connection", (ws, req) => {
   ws.on("close", () => clearInterval(timer));
 });
 
-function jitter(center: number, amp: number) {
-  return center + (Math.random() * 2 - 1) * amp;
-}
+// --------------------
 
 const PORT = 8787;
 server.listen(PORT, () => {
-  console.log(`Mock server (REST) on http://localhost:${PORT}`);
-  console.log(`Mock WS on ws://localhost:${PORT}/ws?deviceId=SMX-KPRO-001&ch=1`);
+  console.log(`Mock server on http://localhost:${PORT}`);
 });
