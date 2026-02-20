@@ -31,7 +31,7 @@ export default function DevicesPage() {
   }, []); 
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-8xl">
       <h1 className="text-2xl font-semibold">Devices</h1>
       <p className="text-sm text-smx-muted mt-2">
         V0: discovery mock via API. No real (LAN), depois podemos trocar por mDNS + “pairing”/scan.

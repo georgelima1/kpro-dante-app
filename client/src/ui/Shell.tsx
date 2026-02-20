@@ -398,7 +398,7 @@ export default function Shell({ children }: PropsWithChildren) {
                                     .find((x) => x.key === "output")
                                     ?.children?.map((c) => {
                                         const href = c.href({ deviceId, ch });
-                                        const active = matchPath({ path: href.split("?")[0], end: true }, pathname);
+                                        const active = !!matchPath({ path: href.split("?")[0], end: true }, pathname);
 
                                         return (
                                             <Link

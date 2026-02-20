@@ -8,6 +8,7 @@ type ChannelStatus = {
   name?: string;
   audio: { mute: boolean; gainDb: number; polarity: 1 | -1 };
   meters: { rmsDb: number; peakDb: number };
+  delay: { enabled: boolean, valueSamples: number },
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
 };
@@ -20,6 +21,7 @@ type DeviceStatus = {
   rails: { vbat: number; vbus: number };
   powerOn: boolean;
   channelsCount: number;
+  dsp: { sampleRate: number, delayMaxMs: number };
   channels: ChannelStatus[];
 };
 
@@ -40,6 +42,10 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
     temps: { heatsink: 42.3, board: 38.8 },
     rails: { vbat: 12.6, vbus: 5.1 },
     powerOn: true,
+    dsp: {
+      sampleRate: 48000,
+      delayMaxMs: 100
+    },
     channelsCount,
     channels: Array.from({ length: channelsCount }).map((_, i) => {
       const ch = i + 1;
@@ -48,6 +54,7 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
         name: `CH${ch}`,
         audio: { mute: false, gainDb: -24, polarity: 1 },
         meters: { rmsDb: -80, peakDb: -80 },
+        delay: { enabled: true, valueSamples: 0 },
         flags: { clip: false, limit: false, protect: false, reason: "" },
         route: { from: "Input 1", to: `Out ${ch}` }
       };
