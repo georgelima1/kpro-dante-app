@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export type ChannelStatus = {
   ch: number;
@@ -16,10 +17,7 @@ export type DeviceStatus = {
   net: { wifi: string; lan: string };
   temps: { heatsink: number; board: number };
   rails: { vbat: number; vbus: number };
-  dsp: {
-    sampleRate: number,
-    delayMaxMs: number
-  },
+  dsp: { sampleRate: number; delayMaxMs: number };
   powerOn: boolean;
   channelsCount: number;
   channels: ChannelStatus[];
@@ -37,6 +35,12 @@ type Ctx = {
 
 const DeviceCtx = createContext<Ctx | undefined>(undefined);
 
+function clampCh(v: unknown) {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.floor(n));
+}
+
 export function DeviceProvider({
   deviceId,
   children
@@ -44,31 +48,68 @@ export function DeviceProvider({
   deviceId: string;
   children: React.ReactNode;
 }) {
-  const [status, setStatus] = useState<DeviceStatus | null>(null);
-  const [ch, setCh] = useState<number>(1);
+  const nav = useNavigate();
+  const loc = useLocation();
 
+  const [status, setStatus] = useState<DeviceStatus | null>(null);
+
+  // ✅ inicializa lendo ?ch=
+  const [ch, _setCh] = useState<number>(() => {
+    const sp = new URLSearchParams(loc.search);
+    return clampCh(sp.get("ch") ?? 1);
+  });
+
+  // ✅ carregar status
   useEffect(() => {
     let alive = true;
+
     async function load() {
       const r = await fetch(`/api/v1/devices/${deviceId}/status`);
       const j = await r.json();
       if (alive) setStatus(j);
     }
+
     load();
-    const t = setInterval(load, 1000); // refresca status p/ manter flags na UI
-    return () => { alive = false; clearInterval(t); };
+    const t = setInterval(load, 1000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
   }, [deviceId]);
 
-  const value = useMemo(() => ({ status, setStatus }), [status]);
-  return <DeviceCtx.Provider
-    value={{
+  // ✅ quando URL mudar (back/forward, links etc), sincroniza o ch do state
+  useEffect(() => {
+    const sp = new URLSearchParams(loc.search);
+    const next = clampCh(sp.get("ch") ?? 1);
+    _setCh(next);
+  }, [loc.search]);
+
+  // ✅ setCh agora atualiza STATE + URL (assim o Shell atualiza)
+  function setCh(next: number) {
+    const n = clampCh(next);
+    _setCh(n);
+
+    const sp = new URLSearchParams(loc.search);
+    sp.set("ch", String(n));
+
+    nav(
+      { pathname: loc.pathname, search: `?${sp.toString()}` },
+      { replace: true } // não polui histórico enquanto você troca de canal
+    );
+  }
+
+  const value = useMemo(
+    () => ({
       deviceId,
       status,
       setStatus,
       ch,
       setCh
-    }}
-  >{children}</DeviceCtx.Provider>;
+    }),
+    [deviceId, status, ch]
+  );
+
+  return <DeviceCtx.Provider value={value}>{children}</DeviceCtx.Provider>;
 }
 
 export function useDevice() {

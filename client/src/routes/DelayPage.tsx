@@ -1,49 +1,57 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDevice } from "../state/DeviceContext";
 
 type Unit = "samples" | "ms" | "feet" | "meter";
 
 const SPEED_OF_SOUND_MS = 343; // m/s
-const MS_PER_SECOND = 1000;
 const FEET_PER_METER = 3.28084;
+
+const API = (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:8787";
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
 }
 
 export default function DelayPage() {
-  const { status, setStatus, deviceId, ch } = useDevice(); // se no seu ctx não tiver, veja nota abaixo
+  const { status, setStatus, deviceId, ch } = useDevice();
   const channel = status?.channels?.find((c) => c.ch === ch);
 
   const sr = status?.dsp?.sampleRate ?? 48000;
   const maxMs = status?.dsp?.delayMaxMs ?? 100;
 
-  // max samples baseado no SR + maxMs
   const maxSamples = useMemo(() => Math.round((sr * maxMs) / 1000), [sr, maxMs]);
 
   const enabled = channel?.delay?.enabled ?? true;
-  const valueSamples = channel?.delay?.valueSamples ?? 0;
+  const serverSamples = channel?.delay?.valueSamples ?? 0;
 
   const [unit, setUnit] = useState<Unit>("ms");
 
-  // conversões
-  const valueMs = useMemo(() => (valueSamples / sr) * 1000, [valueSamples, sr]);
-  const valueMeters = useMemo(() => (valueMs / 1000) * SPEED_OF_SOUND_MS, [valueMs]);
-  const valueFeet = useMemo(() => valueMeters * FEET_PER_METER, [valueMeters]);
+  const [draftSamples, setDraftSamples] = useState<number>(serverSamples);
 
-  // slider sempre manda samples pro server
+  const draggingRef = useRef(false);
+
+  useEffect(() => {
+    if (!draggingRef.current) setDraftSamples(serverSamples);
+  }, [serverSamples, ch, deviceId]);
+
+  // ---- conversões sempre a partir do draft ----
+  const draftMs = useMemo(() => (draftSamples / sr) * 1000, [draftSamples, sr]);
+  const draftMeters = useMemo(() => (draftMs / 1000) * SPEED_OF_SOUND_MS, [draftMs]);
+  const draftFeet = useMemo(() => draftMeters * FEET_PER_METER, [draftMeters]);
+
+  // sliderValue exibido depende da unidade
   const sliderValue = useMemo(() => {
     switch (unit) {
       case "samples":
-        return valueSamples;
+        return draftSamples;
       case "ms":
-        return valueMs;
+        return draftMs;
       case "feet":
-        return valueFeet;
+        return draftFeet;
       case "meter":
-        return valueMeters;
+        return draftMeters;
     }
-  }, [unit, valueSamples, valueMs, valueFeet, valueMeters]);
+  }, [unit, draftSamples, draftMs, draftFeet, draftMeters]);
 
   const sliderMax = useMemo(() => {
     switch (unit) {
@@ -57,6 +65,33 @@ export default function DelayPage() {
         return (maxMs / 1000) * SPEED_OF_SOUND_MS;
     }
   }, [unit, maxSamples, maxMs]);
+
+  const sliderStep = useMemo(() => {
+    switch (unit) {
+      case "samples":
+        return 1;
+      case "ms":
+        return 0.01;
+      case "feet":
+        return 0.01;
+      case "meter":
+        return 0.01;
+    }
+  }, [unit]);
+
+  // ✅ passos “pro” pros botões (você pode ajustar)
+  const buttonStep = useMemo(() => {
+    switch (unit) {
+      case "samples":
+        return 1; // 1 sample
+      case "ms":
+        return 0.10; // 0.1 ms
+      case "feet":
+        return 0.10; // 0.1 ft
+      case "meter":
+        return 0.01; // 1 cm
+    }
+  }, [unit]);
 
   function toSamplesFromUnit(v: number) {
     switch (unit) {
@@ -78,11 +113,13 @@ export default function DelayPage() {
 
   async function setDelayEnabled(next: boolean) {
     if (!deviceId || !ch) return;
-    const r = await fetch(`/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
+
+    const r = await fetch(`${API}/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled: next })
     });
+
     const j = await r.json();
 
     setStatus((s) => {
@@ -94,15 +131,16 @@ export default function DelayPage() {
     });
   }
 
-  async function setDelaySamples(samples: number) {
+  async function commitDelaySamples(samples: number) {
     if (!deviceId || !ch) return;
     const clamped = clamp(samples, 0, maxSamples);
 
-    const r = await fetch(`/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
+    const r = await fetch(`${API}/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ valueSamples: clamped })
     });
+
     const j = await r.json();
 
     setStatus((s) => {
@@ -114,23 +152,36 @@ export default function DelayPage() {
     });
   }
 
+  // ✅ botões up/down: ajusta local e já “commit” no server (1 clique = 1 POST)
+  function nudge(delta: number) {
+    const nextValueUnit = clamp(sliderValue + delta, 0, sliderMax);
+    const nextSamples = clamp(toSamplesFromUnit(nextValueUnit), 0, maxSamples);
+
+    setDraftSamples(nextSamples);
+    commitDelaySamples(nextSamples);
+  }
+
   if (!status || !channel) return null;
 
-  // visual disabled (cinza) + sem clique
   const disabledWrap =
-    !enabled
-      ? "opacity-45 grayscale pointer-events-none select-none"
-      : "opacity-100";
+    !enabled ? "opacity-45 grayscale pointer-events-none select-none" : "opacity-100";
 
-  const tabBase =
-    "flex-1 py-3 text-sm font-semibold rounded-2xl transition border";
-  const tabActive =
-    "bg-smx-red/20 border-smx-red/40 text-smx-text";
-  const tabIdle =
-    "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30";
+  const tabBase = "flex-1 py-3 text-sm font-semibold rounded-2xl transition border";
+  const tabActive = "bg-smx-red/20 border-smx-red/40 text-smx-text";
+  const tabIdle = "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30";
+
+  const fillPct = sliderMax > 0 ? (sliderValue / sliderMax) * 100 : 0;
+
+  // label unidade
+  const unitLabel = unit === "samples" ? "" : unit;
+
+  // botões estilo Pascal (quadradinhos)
+  const arrowBtn =
+    "w-11 h-11 rounded-2xl border bg-smx-panel2 border-smx-line hover:border-smx-red/40 " +
+    "transition active:scale-95 grid place-items-center text-white";
 
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="max-w-8xl space-y-8">
       <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
         {/* header */}
         <div className="px-5 py-4 border-b border-smx-line flex items-center justify-between">
@@ -144,55 +195,61 @@ export default function DelayPage() {
           {/* switch */}
           <button
             onClick={() => setDelayEnabled(!enabled)}
-            className={`relative w-14 h-8 rounded-full border transition
-              ${enabled ? "bg-smx-red/30 border-smx-red/50" : "bg-smx-panel2 border-smx-line"}
-            `}
+            className={`relative w-14 h-8 rounded-full border transition ${enabled ? "bg-smx-red/30 border-smx-red/50" : "bg-smx-panel2 border-smx-line"
+              }`}
             aria-label="Delay On/Off"
             title="Delay On/Off"
           >
             <span
-              className={`absolute top-1 left-1 w-6 h-6 rounded-full transition-transform
-                ${enabled ? "translate-x-6 bg-white" : "translate-x-0 bg-white/80"}
-              `}
+              className={`absolute top-1 left-1 w-6 h-6 rounded-full transition-transform ${enabled ? "translate-x-6 bg-white" : "translate-x-0 bg-white/80"
+                }`}
             />
           </button>
         </div>
 
-        {/* content (cinza quando OFF) */}
         <div className="p-5 space-y-5">
           <div className={disabledWrap}>
-            <div className="text-xs text-smx-muted mb-2">UNIT</div>
+            <div className="bg-black/10 border border-smx-line rounded-2xl p-2">
+              <div className="flex items-center justify-between mb-1 px-1">
+                <span className="text-[10px] uppercase tracking-wide text-smx-muted">
+                  Unit
+                </span>
+              </div>
 
-            {/* tabs 4 unidades */}
-            <div className="flex gap-2 bg-black/10 border border-smx-line rounded-2xl p-2">
-              <button
-                className={`${tabBase} ${unit === "samples" ? tabActive : tabIdle}`}
-                onClick={() => setUnit("samples")}
-              >
-                Samples
-              </button>
-              <button
-                className={`${tabBase} ${unit === "ms" ? tabActive : tabIdle}`}
-                onClick={() => setUnit("ms")}
-              >
-                Ms
-              </button>
-              <button
-                className={`${tabBase} ${unit === "feet" ? tabActive : tabIdle}`}
-                onClick={() => setUnit("feet")}
-              >
-                Feet
-              </button>
-              <button
-                className={`${tabBase} ${unit === "meter" ? tabActive : tabIdle}`}
-                onClick={() => setUnit("meter")}
-              >
-                Meter
-              </button>
+              <div className="flex gap-2">
+                <button
+                  className={`${tabBase} ${unit === "samples" ? tabActive : tabIdle}`}
+                  onClick={() => setUnit("samples")}
+                  type="button"
+                >
+                  Samples
+                </button>
+                <button
+                  className={`${tabBase} ${unit === "ms" ? tabActive : tabIdle}`}
+                  onClick={() => setUnit("ms")}
+                  type="button"
+                >
+                  Ms
+                </button>
+                <button
+                  className={`${tabBase} ${unit === "feet" ? tabActive : tabIdle}`}
+                  onClick={() => setUnit("feet")}
+                  type="button"
+                >
+                  Feet
+                </button>
+                <button
+                  className={`${tabBase} ${unit === "meter" ? tabActive : tabIdle}`}
+                  onClick={() => setUnit("meter")}
+                  type="button"
+                >
+                  Meter
+                </button>
+              </div>
             </div>
 
             {/* slider card */}
-            <div className="mt-4 bg-black/10 border border-smx-line rounded-2xl p-5">
+            <div className="mt-4 bg-black/10 border border-smx-line rounded-2xl py-2 px-3">
               <div className="flex items-center justify-between">
                 <div className="font-semibold">
                   Delay{" "}
@@ -200,11 +257,45 @@ export default function DelayPage() {
                     [{unit === "samples" ? "samples" : unit}]
                   </span>
                 </div>
-                <div className="text-lg font-semibold">
-                  {unit === "samples" ? valueSamples : sliderValue.toFixed(2)}{" "}
-                  <span className="text-smx-muted text-sm font-normal">
-                    {unit === "samples" ? "" : unit}
-                  </span>
+
+                {/* ✅ botões up/down + valor (como você pediu) */}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className={arrowBtn}
+                    onClick={() => nudge(+buttonStep)}
+                    title={`Increase (+${buttonStep} ${unit})`}
+                    aria-label="Increase delay"
+                  >
+                    {/* seta pra cima */}
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M12 5l7 7-1.4 1.4L12 8.8 6.4 13.4 5 12l7-7z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
+
+                  <div className="text-lg font-semibold min-w-[80px] text-right">
+                    {unit === "samples" ? draftSamples : sliderValue.toFixed(2)}{" "}
+                    <span className="text-smx-muted text-sm font-normal">{unitLabel}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={arrowBtn}
+                    onClick={() => nudge(-buttonStep)}
+                    title={`Decrease (-${buttonStep} ${unit})`}
+                    aria-label="Decrease delay"
+                  >
+                    {/* seta pra baixo */}
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path
+                        d="M12 19l-7-7 1.4-1.4L12 15.2l5.6-4.6L19 12l-7 7z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
                 </div>
               </div>
 
@@ -213,20 +304,27 @@ export default function DelayPage() {
                   type="range"
                   min={0}
                   max={sliderMax}
-                  step={unit === "samples" ? 1 : unit === "ms" ? 0.01 : 0.01}
+                  step={sliderStep}
                   value={sliderValue}
+                  onPointerDown={() => {
+                    draggingRef.current = true;
+                  }}
                   onChange={(e) => {
-                    const raw = Number(e.target.value);
-                    const samples = toSamplesFromUnit(raw);
-                    setDelaySamples(samples);
+                    const v = Number(e.target.value);
+                    const nextSamples = clamp(toSamplesFromUnit(v), 0, maxSamples);
+                    setDraftSamples(nextSamples);
+                  }}
+                  onPointerUp={() => {
+                    draggingRef.current = false;
+                    commitDelaySamples(draftSamples);
                   }}
                   className="w-full smx-range smx-range-fill smx-range-red"
                   style={{
-                    ["--fill" as any]: `${(sliderValue / sliderMax) * 100}%`
+                    ["--fill" as any]: `${fillPct}%`
                   }}
                 />
 
-                <div className="mt-2 flex justify-between text-xs text-smx-muted">
+                <div className="flex justify-between text-xs text-smx-muted">
                   <span>0</span>
                   <span>{unit === "samples" ? maxSamples : Math.round(sliderMax)}</span>
                 </div>
@@ -236,25 +334,26 @@ export default function DelayPage() {
             {/* equivalências */}
             <div className="text-sm text-smx-muted space-y-2 mt-4">
               <div>
-                Delay equals{" "}
-                <span className="text-smx-text font-semibold">{valueSamples}</span> samples
+                Delay equals <span className="text-smx-text font-semibold">{draftSamples}</span>{" "}
+                samples
+              </div>
+              <div>
+                Delay equals <span className="text-smx-text font-semibold">{draftMs.toFixed(2)}</span>{" "}
+                ms
               </div>
               <div>
                 Delay equals{" "}
-                <span className="text-smx-text font-semibold">{valueMs.toFixed(2)}</span> ms
+                <span className="text-smx-text font-semibold">{draftFeet.toFixed(2)}</span> feet
+                (aprox.)
               </div>
               <div>
                 Delay equals{" "}
-                <span className="text-smx-text font-semibold">{valueFeet.toFixed(2)}</span> feet (aprox.)
-              </div>
-              <div>
-                Delay equals{" "}
-                <span className="text-smx-text font-semibold">{valueMeters.toFixed(2)}</span> meter (aprox.)
+                <span className="text-smx-text font-semibold">{draftMeters.toFixed(2)}</span> meter
+                (aprox.)
               </div>
             </div>
           </div>
 
-          {/* dica quando OFF */}
           {!enabled && (
             <div className="text-xs text-smx-muted">
               Delay está desativado (OFF). Ative o switch para editar.

@@ -147,61 +147,37 @@ app.post("/api/v1/devices/:id/ch/:ch/audio", (req, res) => {
 // -------------------- DELAY --------------------
 
 // GET DELAY
-app.get("/api/v1/devices/:id/ch/:ch/delay", (req, res) => {
-  const d = DEVICES[req.params.id];
-  if (!d) return res.status(404).json({ error: "device not found" });
-
-  const chNum = Number(req.params.ch);
-  let ch;
-  try {
-    ch = getCh(d, chNum);
-  } catch {
-    return res.status(404).json({ error: "channel not found" });
-  }
-
-  res.json({
-    enabled: ch.delay.enabled,
-    valueSamples: ch.delay.valueSamples,
-    sampleRate: d.dsp.sampleRate,
-    maxMs: d.dsp.delayMaxMs,
-    maxSamples: maxSamples(d)
-  });
-});
-
-// POST DELAY
 app.post("/api/v1/devices/:id/ch/:ch/delay", (req, res) => {
   const d = DEVICES[req.params.id];
   if (!d) return res.status(404).json({ error: "device not found" });
 
   const chNum = Number(req.params.ch);
-  let ch;
-  try {
-    ch = getCh(d, chNum);
-  } catch {
-    return res.status(404).json({ error: "channel not found" });
+  const ch = d.channels.find(c => c.ch === chNum);
+  if (!ch) return res.status(404).json({ error: "channel not found" });
+
+  const { enabled, valueSamples } = req.body ?? {};
+
+  if (typeof enabled === "boolean") ch.delay.enabled = enabled;
+
+  if (typeof valueSamples === "number") {
+    // clamp pelo DSP
+    const maxSamples = Math.round((d.dsp.sampleRate * d.dsp.delayMaxMs) / 1000);
+    ch.delay.valueSamples = clamp(Math.round(valueSamples), 0, maxSamples);
   }
 
-  const maxS = maxSamples(d);
+  res.json({ delay: ch.delay });
+});
 
-  if (typeof req.body.enabled === "boolean") {
-    ch.delay.enabled = req.body.enabled;
-  }
+// opcional (mas útil): ler delay do canal
+app.get("/api/v1/devices/:id/ch/:ch/delay", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
 
-  if (typeof req.body.valueSamples === "number") {
-    ch.delay.valueSamples = clamp(
-      Math.round(req.body.valueSamples),
-      0,
-      maxS
-    );
-  }
+  const chNum = Number(req.params.ch);
+  const ch = d.channels.find(c => c.ch === chNum);
+  if (!ch) return res.status(404).json({ error: "channel not found" });
 
-  res.json({
-    enabled: ch.delay.enabled,
-    valueSamples: ch.delay.valueSamples,
-    sampleRate: d.dsp.sampleRate,
-    maxMs: d.dsp.delayMaxMs,
-    maxSamples: maxS
-  });
+  res.json({ delay: ch.delay });
 });
 
 // -------------------- WS --------------------

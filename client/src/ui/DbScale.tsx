@@ -33,34 +33,31 @@ export default function DbScale({
   insetPx = 0
 }: DbScaleProps) {
   return (
-    <div className={`mt-2 ${className ?? ""}`}>
-      {/* wrapper para aplicar inset (se quiser) */}
-      <div
-        className="relative h-6"
-        style={{ marginLeft: insetPx }}
-      >
-        {marks.map((m) => {
-          const p = pctFromDb(m, minDb, maxDb);
+    <div
+      className="relative h-6"
+      style={{ marginLeft: insetPx }}
+    >
+      {marks.map((m) => {
+        const p = pctFromDb(m, minDb, maxDb);
 
-          return (
-            <div
-              key={m}
-              className="absolute top-0"
-              style={{
-                // ✅ aqui entra o offset em pixels
-                left: `calc(${p}% + ${offsetPx}px)`,
-                // centraliza o tick no ponto
-                transform: "translateX(-50%)"
-              }}
-            >
-              <div className="h-2 w-px bg-smx-line" />
-              <div className="mt-1 text-[11px] text-smx-muted select-none whitespace-nowrap">
-                {m}
-              </div>
+        return (
+          <div
+            key={m}
+            className="absolute top-0"
+            style={{
+              // ✅ aqui entra o offset em pixels
+              left: `calc(${p}% + ${offsetPx}px)`,
+              // centraliza o tick no ponto
+              transform: "translateX(-50%)"
+            }}
+          >
+            <div className="h-2 w-px bg-smx-line" />
+            <div className="mt-1 text-[11px] text-smx-muted select-none whitespace-nowrap">
+              {m}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ChannelStrip from "./ChannelStrip";
 import { useDevice } from "../state/DeviceContext";
+import FlagDot from "./FlagDot";
 
 export default function ChannelHeader() {
   const { status, setStatus, deviceId, ch, setCh } = useDevice();
@@ -98,7 +99,7 @@ export default function ChannelHeader() {
     peakHoldRef.current = -80;
     lastPeakAtRef.current = Date.now();
   }, [ch]);
-  
+
 
   async function setMute(mute: boolean) {
     const r = await fetch(`/api/v1/devices/${deviceId}/ch/${ch}/audio`, {
@@ -143,61 +144,113 @@ export default function ChannelHeader() {
   if (!status || !channel) return null;
 
   return (
-    <section className="bg-smx-panel/95 backdrop-blur border border-smx-line rounded-2xl p-4 md:p-6 sticky top-0 z-30">
-      {/* Top: Tabs de canal (mantém, porque nessa tela você seleciona CH) */}
-      <div className="px-5 py-3 border-b border-smx-line flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {Array.from({ length: channelsCount }).map((_, i) => {
-            const n = i + 1;
-            const active = n === ch;
-            return (
-              <button
-                key={n}
-                onClick={() => setCh(n)}
-                className={`px-4 py-2 rounded-xl border text-sm font-semibold transition ${active
-                  ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
-                  : "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30"
-                  }`}
-              >
-                {n}
-              </button>
-            );
-          })}
-        </div>
+    <section className="bg-smx-panel/95 backdrop-blur border border-smx-line rounded-2xl sticky top-0 z-30">
+      {/* Top bar */}
+      <div className="px-4 md:px-5 py-3 border-b border-smx-line">
+        <div className="flex items-start justify-between gap-3">
+          {/* Left: Tabs + Signal */}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              {Array.from({ length: channelsCount }).map((_, i) => {
+                const n = i + 1;
+                const active = n === ch;
+                return (
+                  <button
+                    key={n}
+                    onClick={() => setCh(n)}
+                    className={`px-3 py-1.5 rounded-xl border text-sm font-semibold transition ${active
+                      ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
+                      : "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30"
+                      }`}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
 
-        {/* legenda flags (igual dashboard) */}
-        <div className="flex items-center gap-3 text-xs text-smx-muted">
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-smx-red/80" />
-            <span>Protect</span>
+            <div className="mt-1 text-xs text-smx-muted truncate">
+              Signal: <span className="text-smx-text">{channel?.route?.from ?? "—"}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-white" />
-            <span>Limit</span>
+
+          {/* Right: Polarity + Mute + Flags (no lugar da legenda) */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Protect / Limit como LEDs funcionais */}
+            <div className="flex items-center gap-2 mr-1">
+              <span className="text-xs">Protect</span>
+              <FlagDot
+                on={!!channel.flags.protect}
+                color="red"
+                title={
+                  channel.flags.protect
+                    ? `Protect: ${channel.flags.reason ?? "—"}`
+                    : "Protect: OFF"
+                }
+              />
+              <span className="text-xs">Limit</span>
+              <FlagDot
+                on={!!channel.flags.limit}
+                color="white"
+                title={channel.flags.limit ? "Limit: ON" : "Limit: OFF"}
+              />
+            </div>
+
+            {/* Ø */}
+            <button
+              onClick={() => togglePolarity()}
+              className={`w-10 h-10 rounded-2xl border flex items-center justify-center
+                transition-all duration-200 active:scale-95 font-semibold
+                ${channel.audio.polarity === -1
+                  ? "bg-white border-white text-smx-panel shadow-sm"
+                  : "bg-smx-panel2 border-smx-line text-white hover:border-white/30"
+                }`}
+              title="Polarity"
+            >
+              Ø
+            </button>
+
+            {/* M */}
+            <button
+              onClick={() => setMute(!channel.audio.mute)}
+              className={`w-10 h-10 rounded-2xl border flex items-center justify-center
+                transition-all duration-200 active:scale-95 font-semibold
+                ${channel.audio.mute
+                  ? "bg-smx-red/25 border-smx-red text-smx-red shadow-md"
+                  : "bg-smx-panel2 border-smx-line text-white hover:border-smx-red/40"
+                }`}
+              title="Mute"
+            >
+              M
+            </button>
           </div>
         </div>
       </div>
 
-      {/* ✅ Aqui entra o layout novo do Dashboard */}
-      <ChannelStrip
-        ch={channel.ch}
-        name={channel.name ?? `CH${channel.ch}`}
-        routeFrom={channel.route?.from ?? "—"}
-        mute={channel.audio.mute}
-        gainDb={channel.audio.gainDb}
-        polarity={channel.audio.polarity}
-        rmsDb={channel.meters?.rmsDb ?? -80}
-        peakDb={channel.meters?.peakDb ?? (channel.meters?.rmsDb ?? -80)}
-        peakHoldDb={peakHoldDb}
-        limit={!!channel.flags?.limit}
-        protect={!!channel.flags?.protect}
-        onMute={() => setMute(!channel.audio.mute)}
-        onPolarity={() => togglePolarity()}
-        onGain={(v) => setGainDb(v)}
-        // se quiser mesma "pegada" do dashboard:
-        scaleInsetPx={24}
-        scaleOffsetPx={-6}
-      />
+      {/* Body: ChannelStrip compacto */}
+      <div className="px-2 md:px-3 py-2">
+        <ChannelStrip
+          ch={channel.ch}
+          name={channel.name ?? `CH${channel.ch}`}
+          routeFrom={channel.route?.from ?? "—"}
+          mute={channel.audio.mute}
+          gainDb={channel.audio.gainDb}
+          polarity={channel.audio.polarity}
+          rmsDb={channel.meters?.rmsDb ?? -80}
+          peakDb={channel.meters?.peakDb ?? (channel.meters?.rmsDb ?? -80)}
+          peakHoldDb={peakHoldDb}
+          limit={!!channel.flags?.limit}
+          protect={!!channel.flags?.protect}
+          onMute={() => setMute(!channel.audio.mute)}
+          onPolarity={() => togglePolarity()}
+          onGain={(v) => setGainDb(v)}
+          scaleInsetPx={24}
+          scaleOffsetPx={-6}
+          density="compact"
+          showTopButtons={false}   // ✅ Ø + M já estão no header
+          showSignal={false}       // ✅ signal já está no header
+        />
+      </div>
     </section>
   );
 }

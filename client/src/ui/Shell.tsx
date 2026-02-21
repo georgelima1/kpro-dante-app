@@ -521,16 +521,6 @@ export default function Shell({ children }: PropsWithChildren) {
                                         </span>
 
                                         <Dot />
-                                        <span>
-                                            VBAT <span className="text-smx-text">{deviceStatus.rails.vbat.toFixed(1)}V</span>
-                                        </span>
-
-                                        <Dot />
-                                        <span>
-                                            VBUS <span className="text-smx-text">{deviceStatus.rails.vbus.toFixed(1)}V</span>
-                                        </span>
-
-                                        <Dot />
                                         <span className={deviceStatus.powerOn ? "text-green-500" : "text-smx-red"}>
                                             {deviceStatus.powerOn ? "ON" : "OFF"}
                                         </span>
