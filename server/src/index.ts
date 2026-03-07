@@ -11,6 +11,7 @@ type ChannelStatus = {
   audio: { mute: boolean; gainDb: number; polarity: 1 | -1 };
   meters: { rmsDb: number; peakDb: number };
   delay: { enabled: boolean; valueSamples: number };
+  filters: ChannelFilter[];
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
 };
@@ -27,6 +28,30 @@ type DeviceStatus = {
   channels: ChannelStatus[];
 };
 
+type FilterType =
+  | "hpf"
+  | "lpf"
+  | "parametric"
+  | "low_shelf"
+  | "high_shelf"
+  | "tilt_shelf"
+  | "all_pass"
+  | "band_pass"
+  | "notch";
+
+  type CrossoverFamily = "butterworth" | "linkwitz_riley" | "bessel";
+
+  type ChannelFilter = {
+    id: number;
+    enabled: boolean;
+    type: FilterType;
+    freqHz: number;
+    q: number;
+    gainDb: number;
+    slope?: 6 | 12 | 18 | 24 | 30 | 36 | 42 | 48;
+    crossoverFamily?: CrossoverFamily;
+  };
+
 // -------------------- APP --------------------
 
 const app = express();
@@ -37,6 +62,22 @@ app.use(express.json());
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
+}
+
+function clampFreq(v: number) {
+  return clamp(v, 20, 20000);
+}
+
+function clampQ(v: number) {
+  return clamp(v, 0.1, 20);
+}
+
+function clampGain(v: number) {
+  return clamp(v, -18, 18);
+}
+
+function findFilter(ch: ChannelStatus, filterId: number) {
+  return ch.filters.find((f) => f.id === filterId);
 }
 
 function getCh(dev: DeviceStatus, ch: number) {
@@ -84,6 +125,7 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
         name: `CH${ch}`,
         audio: { mute: false, gainDb: -24, polarity: 1 },
         meters: { rmsDb: -80, peakDb: -80 },
+        filters: makeDefaultFilters(),
 
         // 👇 DELAY POR CANAL
         delay: {
@@ -96,6 +138,95 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
       };
     })
   };
+}
+
+function makeDefaultFilters(): ChannelFilter[] {
+  return [
+    {
+      id: 1,
+      enabled: true,
+      type: "hpf",
+      freqHz: 32,
+      q: 0.7,
+      gainDb: 0,
+      slope: 6,
+      crossoverFamily: "butterworth"
+    },
+    {
+      id: 2,
+      enabled: true,
+      type: "tilt_shelf",
+      freqHz: 63,
+      q: 0.7,
+      gainDb: -7.8
+    },
+    {
+      id: 3,
+      enabled: true,
+      type: "parametric",
+      freqHz: 125,
+      q: 0.7,
+      gainDb: 0
+    },
+    {
+      id: 4,
+      enabled: true,
+      type: "parametric",
+      freqHz: 250,
+      q: 0.7,
+      gainDb: 0
+    },
+    {
+      id: 5,
+      enabled: true,
+      type: "parametric",
+      freqHz: 500,
+      q: 0.7,
+      gainDb: 0
+    },
+    {
+      id: 6,
+      enabled: true,
+      type: "parametric",
+      freqHz: 1000,
+      q: 0.7,
+      gainDb: 0
+    },
+    {
+      id: 7,
+      enabled: true,
+      type: "parametric",
+      freqHz: 2000,
+      q: 0.7,
+      gainDb: 0
+    },
+    {
+      id: 8,
+      enabled: true,
+      type: "parametric",
+      freqHz: 4000,
+      q: 0.7,
+      gainDb: 0
+    },
+    {
+      id: 9,
+      enabled: true,
+      type: "parametric",
+      freqHz: 8000,
+      q: 0.7,
+      gainDb: 0
+    },
+    {
+      id: 10,
+      enabled: true,
+      type: "lpf",
+      freqHz: 22000,
+      q: 0.7,
+      gainDb: 0,
+      slope: 6,
+      crossoverFamily: "butterworth"
+    }
+  ];
 }
 
 // -------------------- REST --------------------
@@ -180,6 +311,73 @@ app.get("/api/v1/devices/:id/ch/:ch/delay", (req, res) => {
   res.json({ delay: ch.delay });
 });
 
+// -------------------- FILTER --------------------
+
+app.get("/api/v1/devices/:id/ch/:ch/filters", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  res.json({
+    filters: channel.filters
+  });
+});
+
+app.post("/api/v1/devices/:id/ch/:ch/filters/:filterId", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const filterId = Number(req.params.filterId);
+
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  const filter = findFilter(channel, filterId);
+  if (!filter) return res.status(404).json({ error: "filter not found" });
+
+  const body = req.body ?? {};
+
+  if (typeof body.enabled === "boolean") filter.enabled = body.enabled;
+
+  if (typeof body.type === "string") {
+    filter.type = body.type as FilterType;
+
+    if (filter.type === "hpf" || filter.type === "lpf") {
+      if (!filter.slope) filter.slope = 12;
+      if (!filter.crossoverFamily) filter.crossoverFamily = "butterworth";
+    } else {
+      delete filter.slope;
+      delete filter.crossoverFamily;
+    }
+  }
+
+  if (typeof body.freqHz === "number") filter.freqHz = clampFreq(body.freqHz);
+  if (typeof body.q === "number") filter.q = clampQ(body.q);
+  if (typeof body.gainDb === "number") filter.gainDb = clampGain(body.gainDb);
+
+  if (typeof body.slope === "number") {
+    const allowed = [6, 12, 18, 24, 30, 36, 42, 48];
+    if (allowed.includes(body.slope)) {
+      filter.slope = body.slope as ChannelFilter["slope"];
+    }
+  }
+
+  if (typeof body.crossoverFamily === "string") {
+    const allowedFamilies = ["butterworth", "linkwitz_riley", "bessel"];
+    if (allowedFamilies.includes(body.crossoverFamily)) {
+      filter.crossoverFamily = body.crossoverFamily as CrossoverFamily;
+    }
+  }
+
+  res.json({
+    filter
+  });
+});
+
 // -------------------- WS --------------------
 
 const server = http.createServer(app);
@@ -208,13 +406,11 @@ wss.on("connection", (ws, req) => {
       const rms = jitter(base, 6);
       const peak = rms + Math.random() * 6;
 
-      const clip = peak > 1.5;
       const limit = peak > -0.5 && peak <= 1.5;
       const protect = !d.powerOn;
 
       c.meters.rmsDb = rms;
       c.meters.peakDb = peak;
-      c.flags.clip = clip;
       c.flags.limit = limit;
       c.flags.protect = protect;
       c.flags.reason = protect ? "POWER OFF" : "";
@@ -226,7 +422,6 @@ wss.on("connection", (ws, req) => {
           ch: c.ch,
           rmsDb: rms,
           peakDb: peak,
-          clip,
           limit,
           protect,
           reason: c.flags.reason

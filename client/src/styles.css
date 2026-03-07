@@ -107,4 +107,38 @@ body { @apply bg-smx-bg text-smx-text; }
         rgba(255, 255, 255, 0.18) 100%
       );
   }
+
+  .smx-select {
+    width: 100%;
+    min-width: fit-content;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+  
+    border: 1px solid rgb(52 57 70);
+    border-radius: 0.75rem;
+    background-color: rgb(24 27 34);
+    color: rgb(245 245 245);
+  
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  
+    outline: none;
+    transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+  
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem;
+  }
+  
+  .smx-select:hover {
+    border-color: rgba(220, 38, 38, 0.3);
+  }
+  
+  .smx-select:focus {
+    border-color: rgb(52 57 70);
+    box-shadow: 0 0 0 0 transparent;
+  }
   

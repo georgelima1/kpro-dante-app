@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { FilterBand } from "../types/filters";
 
 export type ChannelStatus = {
   ch: number;
@@ -7,6 +8,7 @@ export type ChannelStatus = {
   audio: { mute: boolean; gainDb: number; polarity: 1 | -1 };
   meters: { rmsDb: number; peakDb: number };
   delay: { enabled: boolean; valueSamples: number };
+  filters: FilterBand[];
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
 };
@@ -31,6 +33,15 @@ type Ctx = {
 
   ch: number;
   setCh: (ch: number) => void;
+
+  setFilterBand: (
+    ch: number,
+    bandId: number,
+    data: Partial<FilterBand>
+  ) => Promise<void>;
+
+  applyFilterBand: (ch: number, bandId: number) => Promise<void>;
+  applyAllFilters: (ch: number) => Promise<void>;
 };
 
 const DeviceCtx = createContext<Ctx | undefined>(undefined);
@@ -53,13 +64,11 @@ export function DeviceProvider({
 
   const [status, setStatus] = useState<DeviceStatus | null>(null);
 
-  // ✅ inicializa lendo ?ch=
   const [ch, _setCh] = useState<number>(() => {
     const sp = new URLSearchParams(loc.search);
     return clampCh(sp.get("ch") ?? 1);
   });
 
-  // ✅ carregar status
   useEffect(() => {
     let alive = true;
 
@@ -71,20 +80,19 @@ export function DeviceProvider({
 
     load();
     const t = setInterval(load, 1000);
+
     return () => {
       alive = false;
       clearInterval(t);
     };
   }, [deviceId]);
 
-  // ✅ quando URL mudar (back/forward, links etc), sincroniza o ch do state
   useEffect(() => {
     const sp = new URLSearchParams(loc.search);
     const next = clampCh(sp.get("ch") ?? 1);
     _setCh(next);
   }, [loc.search]);
 
-  // ✅ setCh agora atualiza STATE + URL (assim o Shell atualiza)
   function setCh(next: number) {
     const n = clampCh(next);
     _setCh(n);
@@ -94,8 +102,50 @@ export function DeviceProvider({
 
     nav(
       { pathname: loc.pathname, search: `?${sp.toString()}` },
-      { replace: true } // não polui histórico enquanto você troca de canal
+      { replace: true }
     );
+  }
+
+  async function setFilterBand(
+    channel: number,
+    bandId: number,
+    data: Partial<FilterBand>
+  ) {
+    await fetch(`/api/v1/devices/${deviceId}/ch/${channel}/filter/${bandId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    });
+
+    setStatus((prev) => {
+      if (!prev) return prev;
+
+      return {
+        ...prev,
+        channels: prev.channels.map((c) =>
+          c.ch !== channel
+            ? c
+            : {
+                ...c,
+                filters: (c.filters ?? []).map((f) =>
+                  f.id === bandId ? { ...f, ...data } : f
+                )
+              }
+        )
+      };
+    });
+  }
+
+  async function applyFilterBand(channel: number, bandId: number) {
+    await fetch(`/api/v1/devices/${deviceId}/ch/${channel}/filter/${bandId}/apply`, {
+      method: "POST"
+    });
+  }
+
+  async function applyAllFilters(channel: number) {
+    await fetch(`/api/v1/devices/${deviceId}/ch/${channel}/filters/apply`, {
+      method: "POST"
+    });
   }
 
   const value = useMemo(
@@ -104,7 +154,10 @@ export function DeviceProvider({
       status,
       setStatus,
       ch,
-      setCh
+      setCh,
+      setFilterBand,
+      applyFilterBand,
+      applyAllFilters
     }),
     [deviceId, status, ch]
   );

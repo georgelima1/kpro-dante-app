@@ -66,11 +66,11 @@ const nav: NavItem[] = [
                     deviceId ? `/devices/${deviceId}/delay${ch ? `?ch=${ch}` : ""}` : "/devices"
             },
             {
-                key: "eq",
-                label: "Equalizer",
+                key: "filters",
+                label: "Filters",
                 icon: "equalizer",
                 href: ({ deviceId, ch }) =>
-                    deviceId ? `/devices/${deviceId}/eq${ch ? `?ch=${ch}` : ""}` : "/devices"
+                    deviceId ? `/devices/${deviceId}/filters${ch ? `?ch=${ch}` : ""}` : "/devices"
             },
             {
                 key: "speaker",
@@ -143,7 +143,7 @@ export default function Shell({ children }: PropsWithChildren) {
 
         if (pathname.endsWith("/routing")) return "Routing";
         if (pathname.endsWith("/delay")) return "Delay";
-        if (pathname.endsWith("/eq")) return "Equalizer";
+        if (pathname.endsWith("filters")) return "Filters";
         if (pathname.endsWith("/speaker")) return "Speaker Preset";
 
         return ""; // fallback
@@ -258,11 +258,11 @@ export default function Shell({ children }: PropsWithChildren) {
             // 3) Output (grupo): ativo em qualquer subrota de output
             if (item.key === "output") {
                 return !!matchPath({ path: "/devices/:id/:sub", end: true }, pathname) &&
-                    ["/routing", "/delay", "/eq", "/speaker"].some(seg => pathname.endsWith(seg));
+                    ["/routing", "/delay", "filters", "/speaker"].some(seg => pathname.endsWith(seg));
             }
 
-            // 4) Subitens do Output (routing/delay/eq/speaker): match exato
-            if (["routing", "delay", "eq", "speaker"].includes(item.key)) {
+            // 4) Subitens do Output (routing/delay/filters/speaker): match exato
+            if (["routing", "delay", "filters", "speaker"].includes(item.key)) {
                 return !!matchPath({ path: `/devices/:id/${item.key}`, end: true }, pathname);
             }
 

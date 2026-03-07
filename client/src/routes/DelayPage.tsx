@@ -195,13 +195,15 @@ export default function DelayPage() {
           {/* switch */}
           <button
             onClick={() => setDelayEnabled(!enabled)}
-            className={`relative w-14 h-8 rounded-full border transition ${enabled ? "bg-smx-red/30 border-smx-red/50" : "bg-smx-panel2 border-smx-line"
+            className={`relative w-12 h-6 rounded-full border transition ${enabled
+                ? "bg-smx-red/30 border-smx-red/50"
+                : "bg-smx-panel2 border-smx-line"
               }`}
             aria-label="Delay On/Off"
             title="Delay On/Off"
           >
             <span
-              className={`absolute top-1 left-1 w-6 h-6 rounded-full transition-transform ${enabled ? "translate-x-6 bg-white" : "translate-x-0 bg-white/80"
+              className={`absolute top-[0.07rem] left-[0.05rem] w-5 h-5 rounded-full transition-transform ${enabled ? "translate-x-6 bg-white" : "translate-x-0 bg-white/80"
                 }`}
             />
           </button>

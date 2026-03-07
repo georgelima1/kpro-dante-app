@@ -4,7 +4,7 @@ import DeviceLayout from "./DeviceLayout";
 import DashboardDevicePage from "./DashboardDevicePage";
 import RoutingPage from "./RoutingPage";
 import DelayPage from "./DelayPage";
-import EqPage from "./EqPage";
+import FiltersPage from "./FiltersPage";
 import SpeakerPresetPage from "./SpeakerPresetPage";
 import React from "react";
 
@@ -21,7 +21,7 @@ export default function App() {
       <Route path="/devices/:id/*" element={<DeviceLayout />}>
         <Route path="routing" element={<RoutingPage />} />
         <Route path="delay" element={<DelayPage />} />
-        <Route path="eq" element={<EqPage />} />
+        <Route path="filters" element={<FiltersPage />} />
         <Route path="speaker" element={<SpeakerPresetPage />} />
       </Route>
     </Routes>
