@@ -219,6 +219,22 @@ function makeDefaultFilters(): ChannelFilter[] {
     {
       id: 10,
       enabled: true,
+      type: "parametric",
+      freqHz: 8000,
+      q: 0.7,
+      gainDb: 0
+    },
+    {
+      id: 11,
+      enabled: true,
+      type: "parametric",
+      freqHz: 8000,
+      q: 0.7,
+      gainDb: 0
+    },
+    {
+      id: 12,
+      enabled: true,
       type: "lpf",
       freqHz: 22000,
       q: 0.7,

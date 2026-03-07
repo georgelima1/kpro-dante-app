@@ -3,6 +3,7 @@ import { useDevice } from "../state/DeviceContext";
 import FilterIcon from "../ui/FilterIcon";
 import Select from "../ui/Select";
 import { FilterType } from "../types/filters";
+import FrequencyResponseChart from "../ui/FrequencyResponseChart";
 
 type CrossoverFamily = "butterworth" | "linkwitz_riley" | "bessel";
 
@@ -23,11 +24,11 @@ const FILTER_TYPE_OPTIONS: { value: FilterType; label: string }[] = [
   { value: "hpf", label: "High Pass" },
   { value: "lpf", label: "Low Pass" },
   { value: "parametric", label: "Parametric" },
-  { value: "lowShelf", label: "Low Shelf" },
-  { value: "highShelf", label: "High Shelf" },
-  { value: "tiltShelf", label: "Tilt Shelf" },
-  { value: "allPass", label: "All Pass" },
-  { value: "bandPass", label: "Band Pass" },
+  { value: "low_shelf", label: "Low Shelf" },
+  { value: "high_shelf", label: "High Shelf" },
+  { value: "tilt_shelf", label: "Tilt Shelf" },
+  { value: "all_pass", label: "All Pass" },
+  { value: "band_pass", label: "Band Pass" },
   { value: "notch", label: "Notch" }
 ];
 
@@ -65,15 +66,27 @@ function clamp(v: number, min: number, max: number) {
 }
 
 function isGainUsed(type: FilterType) {
-  return ["parametric", "lowShelf", "highShelf", "tiltShelf"].includes(type);
+  return ["parametric", "low_shelf", "high_shelf", "tilt_shelf"].includes(type);
 }
 
 function isQUsed(type: FilterType) {
-  return ["parametric", "lowShelf", "highShelf", "tiltShelf", "allPass", "bandPass", "notch"].includes(type);
+  return ["parametric", "low_shelf", "high_shelf", "tilt_shelf", "all_pass", "band_pass", "notch"].includes(type);
 }
 
 function isCrossoverUsed(type: FilterType) {
   return type === "hpf" || type === "lpf";
+}
+
+function freqToSlider(freq: number) {
+  const min = Math.log10(20);
+  const max = Math.log10(20000);
+  return (Math.log10(freq) - min) / (max - min);
+}
+
+function sliderToFreq(v: number) {
+  const min = Math.log10(20);
+  const max = Math.log10(20000);
+  return Math.pow(10, min + v * (max - min));
 }
 
 export default function EqPage() {
@@ -101,9 +114,9 @@ export default function EqPage() {
   );
 
   const disabledWrap =
-  !selectedFilter?.enabled
-    ? "opacity-45 grayscale pointer-events-none select-none"
-    : "opacity-100";
+    !selectedFilter?.enabled
+      ? "opacity-45 grayscale pointer-events-none select-none"
+      : "opacity-100";
 
   async function updateFilter(filterId: number, patch: Partial<ChannelFilter>) {
     const r = await fetch(`${API}/api/v1/devices/${deviceId}/ch/${ch}/filters/${filterId}`, {
@@ -176,12 +189,11 @@ export default function EqPage() {
 
         <div className="p-5 space-y-5">
           {/* Placeholder do gráfico */}
-          <div className="bg-black/10 border border-smx-line rounded-2xl p-4">
-            <div className="h-52 rounded-xl border border-smx-line bg-[linear-gradient(to_right,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:40px_40px]">
-              <div className="h-full w-full flex items-center justify-center text-sm text-smx-muted">
-                Frequency response chart (Etapa 3)
-              </div>
-            </div>
+          <div className="h-100 rounded-xl border border-smx-line bg-smx-panel2 overflow-hidden">
+            <FrequencyResponseChart
+              filters={filters}
+              selectedId={selectedId}
+            />
           </div>
 
           {/* Navegação dos filtros */}
@@ -224,8 +236,8 @@ export default function EqPage() {
                   <button
                     onClick={() => updateFilter(selectedFilter.id, { enabled: !selectedFilter.enabled })}
                     className={`relative w-12 h-6 rounded-full border transition ${selectedFilter.enabled
-                        ? "bg-smx-red/30 border-smx-red/50"
-                        : "bg-smx-panel2 border-smx-line"
+                      ? "bg-smx-red/30 border-smx-red/50"
+                      : "bg-smx-panel2 border-smx-line"
                       }`}
                     aria-label="On/Off"
                     title="On/Off"
@@ -314,17 +326,19 @@ export default function EqPage() {
                   <ParamRow
                     label="Frequency"
                     unit="Hz"
-                    min={20}
-                    max={20000}
-                    step={1}
-                    value={selectedFilter.freqHz}
+                    min={0}
+                    max={1}
+                    step={0.001}
+                    value={freqToSlider(selectedFilter.freqHz)}
                     onChange={(v) => {
-                      const next = clamp(v, 20, 20000);
-                      updateLocal(selectedFilter.id, { freqHz: next });
+                      const freq = sliderToFreq(v);
+                      updateLocal(selectedFilter.id, { freqHz: clamp(freq, 20, 20000) });
                     }}
-                    onCommit={(v) =>
-                      updateFilter(selectedFilter.id, { freqHz: clamp(v, 20, 20000) })
-                    }
+                    onCommit={(v) => {
+                      const freq = sliderToFreq(v);
+                      updateFilter(selectedFilter.id, { freqHz: clamp(freq, 20, 20000) });
+                    }}
+                    displayValue={selectedFilter.freqHz}
                   />
 
                   {/* Q */}
@@ -382,6 +396,7 @@ function ParamRow({
   step,
   value,
   disabled,
+  displayValue,
   onChange,
   onCommit
 }: {
@@ -392,6 +407,7 @@ function ParamRow({
   step: number;
   value: number;
   disabled?: boolean;
+  displayValue?: number;
   onChange: (v: number) => void;
   onCommit: (v: number) => void;
 }) {
@@ -426,7 +442,7 @@ function ParamRow({
           </button>
 
           <span className="text-smx-text font-semibold min-w-[80px] text-center">
-            {label === "Frequency" ? Math.round(draft) : draft.toFixed(1)} {unit}
+            {displayValue !== undefined ? Math.round(displayValue) : draft.toFixed(1)}
           </span>
 
           <button
