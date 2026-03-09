@@ -226,28 +226,32 @@ export default function EqPage() {
           </div>
         </div>
 
-        <div className="p-5 space-y-5" >
-          <div style={{ userSelect: "none", WebkitUserSelect: "none" }}
-            onPointerUp={() => {
-              if (dragCommitRef.id != null) {
-                updateFilter(dragCommitRef.id, dragCommitRef.patch);
-                dragCommitRef.id = null;
-                dragCommitRef.patch = {};
-              }
+        {/* Gráfico ocupa a largura toda do card */}
+        <div
+          className="w-full h-[260px] md:h-[320px] lg:h-[380px] border-b border-smx-line bg-black/10 overflow-hidden"
+          style={{ userSelect: "none", WebkitUserSelect: "none" }}
+          onPointerUp={() => {
+            if (dragCommitRef.id != null) {
+              updateFilter(dragCommitRef.id, dragCommitRef.patch);
+              dragCommitRef.id = null;
+              dragCommitRef.patch = {};
+            }
+          }}
+        >
+          <FrequencyResponseChart
+            filters={filters}
+            selectedId={selectedId}
+            onSelectFilter={(id) => setSelectedId(id)}
+            onDragFilter={(id, patch) => {
+              dragCommitRef.id = id;
+              dragCommitRef.patch = { ...dragCommitRef.patch, ...patch };
+              updateLocal(id, patch);
             }}
-          >
-            <FrequencyResponseChart
-              filters={filters}
-              selectedId={selectedId}
-              onSelectFilter={(id) => setSelectedId(id)}
-              onDragFilter={(id, patch) => {
-                dragCommitRef.id = id;
-                dragCommitRef.patch = { ...dragCommitRef.patch, ...patch };
-                updateLocal(id, patch);
-              }}
-            />
-          </div>
+          />
+        </div>
 
+        {/* resto da página mantém o padding atual */}
+        <div className="p-5 space-y-5">
           {/* Navegação dos filtros */}
           <div className="bg-black/10 border border-smx-line rounded-2xl p-3">
             <div className="flex gap-2 overflow-x-auto pb-1">
@@ -257,7 +261,10 @@ export default function EqPage() {
                   <button
                     key={f.id}
                     onClick={() => setSelectedId(f.id)}
-                    className={`flex-none aspect-square w-[90px] min-w-[90px] rounded-xl border p-2 text-left transition flex flex-col`}
+                    className={`flex-none aspect-square w-[90px] min-w-[90px] rounded-xl border p-2 text-left transition flex flex-col ${active
+                        ? "bg-smx-red/15 border-smx-red/40"
+                        : "bg-smx-panel2 border-smx-line hover:border-smx-red/30"
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="font-semibold text-sm">{f.id}</div>
@@ -279,11 +286,15 @@ export default function EqPage() {
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0 w-full">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm md:text-xs text-smx-muted mb-2">BAND {selectedFilter.id}</div>
+                  <div className="text-sm md:text-xs text-smx-muted mb-2">
+                    BAND {selectedFilter.id}
+                  </div>
 
                   {/* switch */}
                   <button
-                    onClick={() => updateFilter(selectedFilter.id, { enabled: !selectedFilter.enabled })}
+                    onClick={() =>
+                      updateFilter(selectedFilter.id, { enabled: !selectedFilter.enabled })
+                    }
                     className={`relative w-12 h-6 rounded-full border transition ${selectedFilter.enabled
                       ? "bg-smx-red/30 border-smx-red/50"
                       : "bg-smx-panel2 border-smx-line"
@@ -292,31 +303,38 @@ export default function EqPage() {
                     title="On/Off"
                   >
                     <span
-                      className={`absolute top-[0.07rem] left-[0.05rem] w-5 h-5 rounded-full transition-transform ${selectedFilter.enabled ? "translate-x-6 bg-white" : "translate-x-0 bg-white/80"
+                      className={`absolute top-[0.07rem] left-[0.05rem] w-5 h-5 rounded-full transition-transform ${selectedFilter.enabled
+                        ? "translate-x-6 bg-white"
+                        : "translate-x-0 bg-white/80"
                         }`}
                     />
                   </button>
                 </div>
 
-                {/* ✅ tudo abaixo fica cinza e desabilitado quando OFF */}
+                {/* tudo abaixo fica cinza e desabilitado quando OFF */}
                 <div className={disabledWrap}>
                   <div className="flex flex-col py-4 md:flex-row md:flex-wrap gap-3 w-full md:w-auto md:items-end">
-
                     {!isFixedCrossoverBand && (
                       <div className="w-full md:w-[300px]">
                         <Select
                           label="Filter Type"
                           value={selectedFilter.type}
-                          options={FILTER_TYPE_OPTIONS.map(o => ({
+                          options={FILTER_TYPE_OPTIONS.map((o) => ({
                             value: o.value,
                             label: o.label,
-                            icon: <FilterIcon type={o.value} className="w-4 h-4 text-smx-muted shrink-0" />
+                            icon: (
+                              <FilterIcon
+                                type={o.value}
+                                className="w-4 h-4 text-smx-muted shrink-0"
+                              />
+                            )
                           }))}
                           onChange={(type) => {
                             const patch: Partial<ChannelFilter> = { type };
 
                             if (isCrossoverUsed(type)) {
-                              patch.crossoverFamily = selectedFilter.crossoverFamily ?? "butterworth";
+                              patch.crossoverFamily =
+                                selectedFilter.crossoverFamily ?? "butterworth";
                               patch.slope = selectedFilter.slope ?? 12;
                             }
 
@@ -338,7 +356,7 @@ export default function EqPage() {
                                 : "Crossover"
                           }
                           value={selectedCrossoverValue}
-                          options={CROSSOVER_OPTIONS.map(o => ({
+                          options={CROSSOVER_OPTIONS.map((o) => ({
                             value: `${o.family}:${o.slope}`,
                             label: o.label
                           }))}
@@ -360,8 +378,8 @@ export default function EqPage() {
                         />
                       </div>
                     )}
-
                   </div>
+
                   {/* Gain */}
                   <ParamRow
                     label="Gain"
@@ -376,7 +394,7 @@ export default function EqPage() {
                       updateLocal(selectedFilter.id, { gainDb: next });
                     }}
                     onCommit={(v) =>
-                      updateFilter(selectedFilter.id, { gainDb: clamp(v,-24, 24) })
+                      updateFilter(selectedFilter.id, { gainDb: clamp(v, -24, 24) })
                     }
                   />
 
@@ -390,11 +408,15 @@ export default function EqPage() {
                     value={freqToSlider(selectedFilter.freqHz)}
                     onChange={(v) => {
                       const freq = sliderToFreq(v);
-                      updateLocal(selectedFilter.id, { freqHz: clamp(freq, 20, 20000) });
+                      updateLocal(selectedFilter.id, {
+                        freqHz: clamp(freq, 20, 20000)
+                      });
                     }}
                     onCommit={(v) => {
                       const freq = sliderToFreq(v);
-                      updateFilter(selectedFilter.id, { freqHz: clamp(freq, 20, 20000) });
+                      updateFilter(selectedFilter.id, {
+                        freqHz: clamp(freq, 20, 20000)
+                      });
                     }}
                     displayValue={selectedFilter.freqHz}
                   />

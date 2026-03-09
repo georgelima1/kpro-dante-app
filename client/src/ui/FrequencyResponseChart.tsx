@@ -327,12 +327,16 @@ export default function FrequencyResponseChart({
     <svg
       ref={svgRef}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      preserveAspectRatio="none"
       className="w-full h-full select-none touch-none"
       style={{
         userSelect: "none",
         WebkitUserSelect: "none",
-        cursor: draggingRef.current != null ? "grabbing" : hoveredHandleId != null ? "grab" : "default"
+        cursor:
+          draggingRef.current != null
+            ? "grabbing"
+            : hoveredHandleId != null
+              ? "grab"
+              : "default"
       }}
       onPointerMove={(e) => onPointerMove(e.clientX, e.clientY)}
       onPointerLeave={() => {
@@ -482,7 +486,7 @@ export default function FrequencyResponseChart({
             <circle
               cx={cx}
               cy={cy}
-              r={selectedHandle ? 10 : 8}
+              r={selectedHandle ? 12 : 10}
               fill={filterColor(f.id)}
               stroke={selectedHandle ? "white" : "rgba(255,255,255,0.35)"}
               strokeWidth={selectedHandle ? 2 : 1}
