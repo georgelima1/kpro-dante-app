@@ -212,15 +212,60 @@ function oneFilterMagDb(filter: ChannelFilter, freq: number) {
 
 function buildPath(fn: (freq: number) => number, samples = 360) {
   let d = "";
+  let started = false;
+
   for (let i = 0; i < samples; i++) {
     const t = i / (samples - 1);
     const logMin = Math.log10(FREQ_MIN);
     const logMax = Math.log10(FREQ_MAX);
     const freq = Math.pow(10, logMin + t * (logMax - logMin));
+
+    const valueDb = fn(freq);
+
+    // ✅ não desenha fora da área visível
+    if (valueDb < DB_MIN || valueDb > DB_MAX) {
+      started = false;
+      continue;
+    }
+
+    const x = logX(freq);
+    const y = dbY(valueDb);
+
+    if (!started) {
+      d += `M ${x} ${y}`;
+      started = true;
+    } else {
+      d += ` L ${x} ${y}`;
+    }
+  }
+
+  return d;
+}
+
+function buildFilledPath(fn: (freq: number) => number, samples = 360) {
+  let d = "";
+
+  for (let i = 0; i < samples; i++) {
+    const t = i / (samples - 1);
+    const logMin = Math.log10(FREQ_MIN);
+    const logMax = Math.log10(FREQ_MAX);
+    const freq = Math.pow(10, logMin + t * (logMax - logMin));
+
     const x = logX(freq);
     const y = dbY(clamp(fn(freq), DB_MIN, DB_MAX));
+
     d += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
   }
+
+  // fecha o shape na linha inferior do gráfico
+  const xEnd = logX(FREQ_MAX);
+  const xStart = logX(FREQ_MIN);
+  const yBottom = dbY(DB_MIN);
+
+  d += ` L ${xEnd} ${yBottom}`;
+  d += ` L ${xStart} ${yBottom}`;
+  d += " Z";
+
   return d;
 }
 
@@ -239,29 +284,44 @@ export default function FrequencyResponseChart({
   filters,
   selectedId,
   onSelectFilter,
-  onDragFilter
+  onDragFilter,
+  onQAdjust
 }: {
   filters: ChannelFilter[];
   selectedId?: number | null;
   onSelectFilter?: (id: number) => void;
   onDragFilter?: (id: number, patch: Partial<ChannelFilter>) => void;
+  onQAdjust?: (id: number, nextQ: number) => void;
 }) {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const draggingRef = useRef<number | null>(null);
+  const [qModeHandleId, setQModeHandleId] = useState<number | null>(null);
+  const qStartRef = useRef<{ y: number; q: number; id: number } | null>(null);
+  const movedRef = useRef(false);
+  const pointerDownRef = useRef<{ x: number; y: number } | null>(null);
+  const pendingDragRef = useRef<{
+    id: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
+
+  const [hover, setHover] = useState<{ x: number; y: number; freq: number; db: number } | null>(null);
+  const [hoveredHandleId, setHoveredHandleId] = useState<number | null>(null);
+
   const selected = useMemo(
     () => filters.find((f) => f.id === selectedId) ?? null,
     [filters, selectedId]
   );
-
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const draggingRef = useRef<number | null>(null);
-
-  const [hover, setHover] = useState<{ x: number; y: number; freq: number; db: number } | null>(null);
-
-  const [hoveredHandleId, setHoveredHandleId] = useState<number | null>(null);
-
   const activeFilters = useMemo(() => filters.filter((f) => f.enabled), [filters]);
 
   const totalPath = useMemo(() => {
     return buildPath((freq) =>
+      activeFilters.reduce((sum, f) => sum + oneFilterMagDb(f, freq), 0)
+    );
+  }, [activeFilters]);
+
+  const totalFillPath = useMemo(() => {
+    return buildFilledPath((freq) =>
       activeFilters.reduce((sum, f) => sum + oneFilterMagDb(f, freq), 0)
     );
   }, [activeFilters]);
@@ -292,6 +352,29 @@ export default function FrequencyResponseChart({
     const p = svgPoint(clientX, clientY);
     if (!p) return;
 
+    // ✅ ativa o drag só depois de passar do limiar
+    if (pendingDragRef.current && draggingRef.current == null && !qStartRef.current) {
+      const dx = p.x - pendingDragRef.current.startX;
+      const dy = p.y - pendingDragRef.current.startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 8) {
+        draggingRef.current = pendingDragRef.current.id;
+        movedRef.current = true;
+        pendingDragRef.current = null;
+      }
+    }
+
+    if (pointerDownRef.current) {
+      const dx = p.x - pointerDownRef.current.x;
+      const dy = p.y - pointerDownRef.current.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 6) {
+        movedRef.current = true;
+      }
+    }
+
     const freq = xToFreq(p.x);
     const db = yToDb(p.y);
 
@@ -301,6 +384,18 @@ export default function FrequencyResponseChart({
       freq,
       db
     });
+
+    if (qStartRef.current && onQAdjust) {
+      const { y: startY, q: startQ, id } = qStartRef.current;
+      const filter = filters.find((f) => f.id === id);
+
+      if (filter && filterUsesQ(filter.type)) {
+        const dy = startY - p.y; // subir aumenta Q
+        const nextQ = clamp(startQ + dy * 0.02, 0.1, 10);
+        onQAdjust(id, nextQ);
+        return;
+      }
+    }
 
     if (draggingRef.current != null && onDragFilter) {
       const filter = filters.find((f) => f.id === draggingRef.current);
@@ -323,11 +418,22 @@ export default function FrequencyResponseChart({
     }
   }
 
+  function filterUsesQ(type: FilterType) {
+    return [
+      "parametric",
+      "low_shelf",
+      "high_shelf",
+      "tilt_shelf",
+      "all_pass",
+      "band_pass",
+      "notch"
+    ].includes(type);
+  }
+
   return (
     <svg
       ref={svgRef}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-      preserveAspectRatio="none"
       className="w-full h-full select-none touch-none"
       style={{
         userSelect: "none",
@@ -341,6 +447,16 @@ export default function FrequencyResponseChart({
       }}
       onPointerUp={() => {
         draggingRef.current = null;
+        qStartRef.current = null;
+        pendingDragRef.current = null;
+        pointerDownRef.current = null;
+      }}
+      onClick={(e) => {
+        // fecha o modo Q só se clicar fora de um handle
+        const target = e.target as Element | null;
+        if (target?.tagName !== "circle") {
+          setQModeHandleId(null);
+        }
       }}
     >
       <rect
@@ -427,6 +543,13 @@ export default function FrequencyResponseChart({
         />
       )}
 
+      {/* total fill */}
+      <path
+        d={totalFillPath}
+        fill="rgba(239,68,68,0.2)"
+        pointerEvents="none"
+      />
+
       {/* total */}
       <path
         d={totalPath}
@@ -462,9 +585,36 @@ export default function FrequencyResponseChart({
                 e.preventDefault();
                 e.stopPropagation();
 
-                draggingRef.current = f.id;
-                setHoveredHandleId(f.id);
+                const filter = filters.find((x) => x.id === f.id);
+                if (!filter) return;
+
                 onSelectFilter?.(f.id);
+                setHoveredHandleId(f.id);
+
+                const p = svgPoint(e.clientX, e.clientY);
+                if (!p) return;
+
+                pointerDownRef.current = { x: p.x, y: p.y };
+                movedRef.current = false;
+
+                if (qModeHandleId === f.id && filterUsesQ(filter.type)) {
+                  qStartRef.current = {
+                    id: f.id,
+                    y: p.y,
+                    q: filter.q
+                  };
+                  draggingRef.current = null;
+                  pendingDragRef.current = null;
+                } else {
+                  // ✅ ainda não começa a arrastar; só marca como gesto pendente
+                  pendingDragRef.current = {
+                    id: f.id,
+                    startX: p.x,
+                    startY: p.y
+                  };
+                  draggingRef.current = null;
+                  qStartRef.current = null;
+                }
 
                 try {
                   (e.currentTarget as Element).setPointerCapture(e.pointerId);
@@ -476,18 +626,85 @@ export default function FrequencyResponseChart({
                 } catch { }
                 draggingRef.current = null;
               }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (movedRef.current) {
+                  movedRef.current = false;
+                  return;
+                }
+
+                const filter = filters.find((x) => x.id === f.id);
+                if (!filter || !filterUsesQ(filter.type)) return;
+
+                setQModeHandleId((prev) => (prev === f.id ? null : f.id));
+              }}
             />
 
+            {/* visible handle */}
             {/* visible handle */}
             <circle
               cx={cx}
               cy={cy}
-              r={selectedHandle ? 10 : 8}
+              r={selectedHandle ? 12 : 10}
               fill={filterColor(f.id)}
               stroke={selectedHandle ? "white" : "rgba(255,255,255,0.35)"}
               strokeWidth={selectedHandle ? 2 : 1}
               pointerEvents="none"
             />
+
+            <text
+              x={cx}
+              y={cy + (selectedHandle ? 3.2 : 2.8)}
+              textAnchor="middle"
+              fontSize={selectedHandle ? "10" : "9"}
+              fontWeight="700"
+              fill="white"
+              pointerEvents="none"
+            >
+              {f.id}
+            </text>
+
+            {qModeHandleId === f.id && filterUsesQ(f.type) && (
+              <g pointerEvents="none">
+                {/* seta esquerda */}
+                <line
+                  x1={cx - 42}
+                  y1={cy}
+                  x2={cx - 12}
+                  y2={cy}
+                  stroke="rgba(255,255,255,0.7)"
+                  strokeWidth="1.1"
+                  strokeLinecap="round"
+                />
+                <path
+                  d={`M ${cx - 42} ${cy} L ${cx - 30} ${cy - 6} M ${cx - 42} ${cy} L ${cx - 30} ${cy + 6}`}
+                  stroke="rgba(255,255,255,0.7)"
+                  strokeWidth="1.1"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+
+                {/* seta direita */}
+                <line
+                  x1={cx + 12}
+                  y1={cy}
+                  x2={cx + 42}
+                  y2={cy}
+                  stroke="rgba(255,255,255,0.7)"
+                  strokeWidth="1.1"
+                  strokeLinecap="round"
+                />
+                <path
+                  d={`M ${cx + 42} ${cy} L ${cx + 30} ${cy - 6} M ${cx + 42} ${cy} L ${cx + 30} ${cy + 6}`}
+                  stroke="rgba(255,255,255,0.7)"
+                  strokeWidth="1.1"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </g>
+            )}
           </g>
         );
       })}

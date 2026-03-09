@@ -247,6 +247,11 @@ export default function EqPage() {
               dragCommitRef.patch = { ...dragCommitRef.patch, ...patch };
               updateLocal(id, patch);
             }}
+            onQAdjust={(id, nextQ) => {
+              dragCommitRef.id = id;
+              dragCommitRef.patch = { ...dragCommitRef.patch, q: nextQ };
+              updateLocal(id, { q: nextQ });
+            }}
           />
         </div>
 

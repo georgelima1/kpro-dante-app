@@ -149,7 +149,7 @@ function makeDefaultFilters(): ChannelFilter[] {
       freqHz: 32,
       q: 0.7,
       gainDb: 0,
-      slope: 6,
+      slope: 24,
       crossoverFamily: "butterworth"
     },
     {
@@ -220,23 +220,15 @@ function makeDefaultFilters(): ChannelFilter[] {
       id: 10,
       enabled: true,
       type: "parametric",
-      freqHz: 8000,
+      freqHz: 16000,
       q: 0.7,
       gainDb: 0
     },
     {
       id: 11,
       enabled: true,
-      type: "parametric",
-      freqHz: 8000,
-      q: 0.7,
-      gainDb: 0
-    },
-    {
-      id: 12,
-      enabled: true,
       type: "lpf",
-      freqHz: 22000,
+      freqHz: 20000,
       q: 0.7,
       gainDb: 0,
       slope: 6,
