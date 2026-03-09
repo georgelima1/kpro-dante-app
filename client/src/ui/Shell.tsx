@@ -350,10 +350,10 @@ export default function Shell({ children }: PropsWithChildren) {
                 <div className={compact ? "mb-6 text-center" : "mb-8"}>
                     {compact ? (
                         <>
-                            <div className="text-[15px] font-semibold tracking-wide leading-none text-smx-red">
+                            <div className="text-sm md:text-[15px] font-semibold tracking-wide leading-none text-smx-red">
                                 Soundmax
                             </div>
-                            <div className="text-[11px] text-smx-muted mt-1 tracking-wider">
+                            <div className="text-sm md:text-[11px] text-smx-muted mt-1 tracking-wider">
                                 Control
                             </div>
                         </>
@@ -363,7 +363,7 @@ export default function Shell({ children }: PropsWithChildren) {
                                 <span className="text-smx-red">Soundmax</span>{" "}
                                 <span className="text-smx-muted font-normal">Control</span>
                             </div>
-                            <div className="text-xs text-smx-muted mt-1">
+                            <div className="text-sm md:text-xs text-smx-muted mt-1">
                                 LAN • Multi-device • ESP32
                             </div>
                         </>
@@ -395,7 +395,7 @@ export default function Shell({ children }: PropsWithChildren) {
                             className="absolute left-[92px] top-[112px] w-[260px] rounded-2xl border border-smx-line bg-smx-panel shadow-2xl p-3"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="text-xs text-smx-muted px-2 pb-2">Output</div>
+                            <div className="text-sm md:text-xs text-smx-muted px-2 pb-2">Output</div>
 
                             <div className="space-y-2">
                                 {nav
@@ -434,7 +434,7 @@ export default function Shell({ children }: PropsWithChildren) {
 
 
                 {!compact && (
-                    <div className="mt-10 text-xs text-smx-muted">
+                    <div className="mt-10 text-sm md:text-xs text-smx-muted">
                         V0 preparado p/ login, histórico, permissões e OTA (V1+).
                     </div>
                 )}
@@ -464,7 +464,7 @@ export default function Shell({ children }: PropsWithChildren) {
                         {deviceId && (
                             <div className="mt-1">
                                 {deviceStatus ? (
-                                    <div className="text-[11px] text-smx-muted font-normal flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                                    <div className="text-sm md:text-[11px] text-smx-muted font-normal flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
                                         {/* Linha principal */}
                                         <span className="text-smx-text font-semibold">{deviceStatus.deviceId}</span>
 
@@ -535,7 +535,7 @@ export default function Shell({ children }: PropsWithChildren) {
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="text-[11px] text-smx-muted text-center">Carregando status…</div>
+                                    <div className="text-sm md:text-[11px] text-smx-muted text-center">Carregando status…</div>
                                 )}
                             </div>
                         )}

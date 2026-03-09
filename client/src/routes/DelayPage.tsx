@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDevice } from "../state/DeviceContext";
+import { API_BASE, WS_BASE } from "../config/endpoints";
 
 type Unit = "samples" | "ms" | "feet" | "meter";
 
 const SPEED_OF_SOUND_MS = 343; // m/s
 const FEET_PER_METER = 3.28084;
-
-const API = (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:8787";
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
@@ -114,7 +113,7 @@ export default function DelayPage() {
   async function setDelayEnabled(next: boolean) {
     if (!deviceId || !ch) return;
 
-    const r = await fetch(`${API}/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
+    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled: next })
@@ -135,7 +134,7 @@ export default function DelayPage() {
     if (!deviceId || !ch) return;
     const clamped = clamp(samples, 0, maxSamples);
 
-    const r = await fetch(`${API}/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
+    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/delay`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ valueSamples: clamped })
@@ -177,7 +176,7 @@ export default function DelayPage() {
 
   // botões estilo Pascal (quadradinhos)
   const arrowBtn =
-    "w-11 h-11 rounded-2xl border bg-smx-panel2 border-smx-line hover:border-smx-red/40 " +
+    "w-10 h-10 rounded-2xl border bg-smx-panel2 border-smx-line hover:border-smx-red/40 " +
     "transition active:scale-95 grid place-items-center text-white";
 
   return (
@@ -187,7 +186,7 @@ export default function DelayPage() {
         <div className="px-5 py-4 border-b border-smx-line flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="text-base font-semibold">Delay</div>
-            <div className="text-xs text-smx-muted">
+            <div className="text-sm md:text-xs text-smx-muted">
               SR {sr} Hz • Max {maxMs} ms
             </div>
           </div>
@@ -213,7 +212,7 @@ export default function DelayPage() {
           <div className={disabledWrap}>
             <div className="bg-black/10 border border-smx-line rounded-2xl p-2">
               <div className="flex items-center justify-between mb-1 px-1">
-                <span className="text-[10px] uppercase tracking-wide text-smx-muted">
+                <span className="text-sm md:text-[10px] uppercase tracking-wide text-smx-muted">
                   Unit
                 </span>
               </div>
@@ -326,7 +325,7 @@ export default function DelayPage() {
                   }}
                 />
 
-                <div className="flex justify-between text-xs text-smx-muted">
+                <div className="flex justify-between text-sm md:text-xs text-smx-muted">
                   <span>0</span>
                   <span>{unit === "samples" ? maxSamples : Math.round(sliderMax)}</span>
                 </div>
@@ -357,7 +356,7 @@ export default function DelayPage() {
           </div>
 
           {!enabled && (
-            <div className="text-xs text-smx-muted">
+            <div className="text-sm md:text-xs text-smx-muted">
               Delay está desativado (OFF). Ative o switch para editar.
             </div>
           )}

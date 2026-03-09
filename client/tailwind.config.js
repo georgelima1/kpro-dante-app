@@ -15,6 +15,8 @@ export default {
             muted: "#a0a0aa"
           }
         }
+      },fontSize: {
+        sm: '0.9rem'
       }
     },
     plugins: []

@@ -4,6 +4,7 @@ import FilterIcon from "../ui/FilterIcon";
 import Select from "../ui/Select";
 import { FilterType } from "../types/filters";
 import FrequencyResponseChart from "../ui/FrequencyResponseChart";
+import { API_BASE, WS_BASE } from "../config/endpoints";
 
 type CrossoverFamily = "butterworth" | "linkwitz_riley" | "bessel";
 
@@ -17,8 +18,6 @@ type ChannelFilter = {
   slope?: 6 | 12 | 18 | 24 | 30 | 36 | 42 | 48;
   crossoverFamily?: CrossoverFamily;
 };
-
-const API = (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:8787";
 
 const FILTER_TYPE_OPTIONS: { value: FilterType; label: string }[] = [
   { value: "hpf", label: "High Pass" },
@@ -99,10 +98,33 @@ export default function EqPage() {
   useEffect(() => {
     if (!deviceId || !ch) return;
 
-    fetch(`${API}/api/v1/devices/${deviceId}/ch/${ch}/filters`)
+    fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/filters`)
       .then((r) => r.json())
       .then((j) => {
-        const arr = (j.filters ?? []) as ChannelFilter[];
+        let arr = (j.filters ?? []) as ChannelFilter[];
+
+        arr = arr.map((f, idx) => {
+          if (idx === 0) {
+            return {
+              ...f,
+              type: "hpf" as FilterType,
+              crossoverFamily: f.crossoverFamily ?? "butterworth",
+              slope: f.slope ?? 12
+            };
+          }
+
+          if (idx === arr.length - 1) {
+            return {
+              ...f,
+              type: "lpf" as FilterType,
+              crossoverFamily: f.crossoverFamily ?? "butterworth",
+              slope: f.slope ?? 12
+            };
+          }
+
+          return f;
+        });
+
         setFilters(arr);
         setSelectedId((prev) => prev ?? arr[0]?.id ?? null);
       });
@@ -118,8 +140,13 @@ export default function EqPage() {
       ? "opacity-45 grayscale pointer-events-none select-none"
       : "opacity-100";
 
+  const dragCommitRef = useState<{ id: number | null; patch: Partial<ChannelFilter> }>({
+    id: null,
+    patch: {}
+  })[0];
+
   async function updateFilter(filterId: number, patch: Partial<ChannelFilter>) {
-    const r = await fetch(`${API}/api/v1/devices/${deviceId}/ch/${ch}/filters/${filterId}`, {
+    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/filters/${filterId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch)
@@ -156,14 +183,19 @@ export default function EqPage() {
   }
 
   function renderSummary(f: ChannelFilter) {
+    const isFirst = f.id === filters[0]?.id;
+    const isLast = f.id === filters[filters.length - 1]?.id;
+
+    const displayType = isFirst ? "hpf" : isLast ? "lpf" : f.type;
+
     return (
-      <div className="text-[11px] text-smx-muted mt-1">
-        <div>{labelOfType(f.type)}</div>
+      <div className="text-[11px] text-smx-muted leading-tight mt-1 space-y-[2px]">
+        <div className="truncate">{labelOfType(displayType)}</div>
         <div>{Math.round(f.freqHz)} Hz</div>
-        {isQUsed(f.type) && <div>{f.q.toFixed(1)} Q</div>}
-        {isGainUsed(f.type) && <div>{f.gainDb.toFixed(1)} dB</div>}
-        {isCrossoverUsed(f.type) && (
-          <div>{labelOfCrossover(f.crossoverFamily, f.slope)}</div>
+        {isQUsed(displayType) && <div>{f.q.toFixed(1)} Q</div>}
+        {isGainUsed(displayType) && <div>{f.gainDb.toFixed(1)} dB</div>}
+        {isCrossoverUsed(displayType) && (
+          <div className="truncate">{labelOfCrossover(f.crossoverFamily, f.slope)}</div>
         )}
       </div>
     );
@@ -175,40 +207,57 @@ export default function EqPage() {
 
   const selectedCrossoverValue = `${selectedFilter.crossoverFamily ?? "butterworth"}:${selectedFilter.slope ?? 12}`;
 
+  const firstFilterId = filters[0]?.id;
+  const lastFilterId = filters[filters.length - 1]?.id;
+
+  const isFirstBand = selectedFilter.id === firstFilterId;
+  const isLastBand = selectedFilter.id === lastFilterId;
+  const isFixedCrossoverBand = isFirstBand || isLastBand;
+
   return (
-    <div className="max-w-6xl space-y-6">
+    <div className="w-full max-w-none space-y-6">
       <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-smx-line flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="text-base font-semibold">Filters</div>
-            <div className="text-xs text-smx-muted">
+            <div className="text-sm md:text-xs text-smx-muted">
               CH {ch} • DSP filters and crossovers
             </div>
           </div>
         </div>
 
-        <div className="p-5 space-y-5">
-          {/* Placeholder do gráfico */}
-          <div className="h-100 rounded-xl border border-smx-line bg-smx-panel2 overflow-hidden">
+        <div className="p-5 space-y-5" >
+          <div style={{ userSelect: "none", WebkitUserSelect: "none" }}
+            onPointerUp={() => {
+              if (dragCommitRef.id != null) {
+                updateFilter(dragCommitRef.id, dragCommitRef.patch);
+                dragCommitRef.id = null;
+                dragCommitRef.patch = {};
+              }
+            }}
+          >
             <FrequencyResponseChart
               filters={filters}
               selectedId={selectedId}
+              onSelectFilter={(id) => setSelectedId(id)}
+              onDragFilter={(id, patch) => {
+                dragCommitRef.id = id;
+                dragCommitRef.patch = { ...dragCommitRef.patch, ...patch };
+                updateLocal(id, patch);
+              }}
             />
           </div>
 
           {/* Navegação dos filtros */}
           <div className="bg-black/10 border border-smx-line rounded-2xl p-3">
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {filters.map((f) => {
                 const active = f.id === selectedId;
                 return (
                   <button
                     key={f.id}
                     onClick={() => setSelectedId(f.id)}
-                    className={`w-[102px] rounded-xl border px-3 py-2 text-left transition ${active
-                      ? "bg-smx-red/15 border-smx-red/40"
-                      : "bg-smx-panel2 border-smx-line hover:border-smx-red/30"
-                      }`}
+                    className={`flex-none aspect-square w-[90px] min-w-[90px] rounded-xl border p-2 text-left transition flex flex-col`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="font-semibold text-sm">{f.id}</div>
@@ -230,7 +279,7 @@ export default function EqPage() {
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0 w-full">
                 <div className="flex items-center justify-between">
-                  <div className="text-xs text-smx-muted mb-2">BAND {selectedFilter.id}</div>
+                  <div className="text-sm md:text-xs text-smx-muted mb-2">BAND {selectedFilter.id}</div>
 
                   {/* switch */}
                   <button
@@ -251,42 +300,45 @@ export default function EqPage() {
 
                 {/* ✅ tudo abaixo fica cinza e desabilitado quando OFF */}
                 <div className={disabledWrap}>
-                  <div className="flex flex-col md:flex-row md:flex-wrap gap-3 w-full md:w-auto md:items-end">
-                    <div className="w-full md:w-[300px]">
-                      <Select
-                        label="Filter Type"
-                        value={selectedFilter.type}
-                        options={FILTER_TYPE_OPTIONS.map((o) => ({
-                          value: o.value,
-                          label: o.label,
-                          icon: (
-                            <FilterIcon
-                              type={o.value}
-                              className="w-4 h-4 text-smx-muted shrink-0"
-                            />
-                          )
-                        }))}
-                        onChange={(type) => {
-                          const patch: Partial<ChannelFilter> = { type };
+                  <div className="flex flex-col py-4 md:flex-row md:flex-wrap gap-3 w-full md:w-auto md:items-end">
 
-                          if (isCrossoverUsed(type)) {
-                            patch.crossoverFamily =
-                              selectedFilter.crossoverFamily ?? "butterworth";
-                            patch.slope = selectedFilter.slope ?? 12;
-                          }
-
-                          updateLocal(selectedFilter.id, patch);
-                          updateFilter(selectedFilter.id, patch);
-                        }}
-                      />
-                    </div>
-
-                    {isCrossoverUsed(selectedFilter.type) && (
+                    {!isFixedCrossoverBand && (
                       <div className="w-full md:w-[300px]">
                         <Select
-                          label="Crossover"
+                          label="Filter Type"
+                          value={selectedFilter.type}
+                          options={FILTER_TYPE_OPTIONS.map(o => ({
+                            value: o.value,
+                            label: o.label,
+                            icon: <FilterIcon type={o.value} className="w-4 h-4 text-smx-muted shrink-0" />
+                          }))}
+                          onChange={(type) => {
+                            const patch: Partial<ChannelFilter> = { type };
+
+                            if (isCrossoverUsed(type)) {
+                              patch.crossoverFamily = selectedFilter.crossoverFamily ?? "butterworth";
+                              patch.slope = selectedFilter.slope ?? 12;
+                            }
+
+                            updateLocal(selectedFilter.id, patch);
+                            updateFilter(selectedFilter.id, patch);
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {(isCrossoverUsed(selectedFilter.type) || isFixedCrossoverBand) && (
+                      <div className="w-full md:w-[300px]">
+                        <Select
+                          label={
+                            isFirstBand
+                              ? "High Pass Filter"
+                              : isLastBand
+                                ? "Low Pass Filter"
+                                : "Crossover"
+                          }
                           value={selectedCrossoverValue}
-                          options={CROSSOVER_OPTIONS.map((o) => ({
+                          options={CROSSOVER_OPTIONS.map(o => ({
                             value: `${o.family}:${o.slope}`,
                             label: o.label
                           }))}
@@ -297,19 +349,25 @@ export default function EqPage() {
                             const crossoverFamily = family as CrossoverFamily;
 
                             updateLocal(selectedFilter.id, { crossoverFamily, slope });
-                            updateFilter(selectedFilter.id, { crossoverFamily, slope });
+
+                            updateFilter(selectedFilter.id, {
+                              crossoverFamily,
+                              slope,
+                              ...(isFirstBand ? { type: "hpf" as FilterType } : {}),
+                              ...(isLastBand ? { type: "lpf" as FilterType } : {})
+                            });
                           }}
                         />
                       </div>
                     )}
-                  </div>
 
+                  </div>
                   {/* Gain */}
                   <ParamRow
                     label="Gain"
                     unit="dB"
-                    min={-18}
-                    max={18}
+                    min={-24}
+                    max={24}
                     step={0.1}
                     value={selectedFilter.gainDb}
                     disabled={!isGainUsed(selectedFilter.type)}
@@ -318,7 +376,7 @@ export default function EqPage() {
                       updateLocal(selectedFilter.id, { gainDb: next });
                     }}
                     onCommit={(v) =>
-                      updateFilter(selectedFilter.id, { gainDb: clamp(v, -18, 18) })
+                      updateFilter(selectedFilter.id, { gainDb: clamp(v,-24, 24) })
                     }
                   />
 
@@ -346,7 +404,7 @@ export default function EqPage() {
                     label="Q"
                     unit=""
                     min={0.1}
-                    max={20}
+                    max={10}
                     step={0.1}
                     value={selectedFilter.q}
                     disabled={!isQUsed(selectedFilter.type)}
@@ -380,10 +438,10 @@ function labelOfCrossover(
 
   const familyLabel =
     family === "butterworth"
-      ? "Butterworth"
+      ? "BT"
       : family === "linkwitz_riley"
-        ? "Linkwitz-Riley"
-        : "Bessel";
+        ? "LR"
+        : "BS";
 
   return `${familyLabel} ${slope} dB/Oct`;
 }
@@ -425,9 +483,13 @@ function ParamRow({
     onCommit(next);
   }
 
+  const arrowBtn =
+    "w-10 h-10 rounded-2xl border bg-smx-panel2 border-smx-line hover:border-smx-red/40 " +
+    "transition active:scale-95 grid place-items-center text-white";
+
   return (
     <div className={disabled ? "opacity-40 pointer-events-none" : ""}>
-      <div className="flex items-center justify-between mb-2 text-xs text-smx-muted">
+      <div className="flex items-center justify-between mb-2 text-sm md:text-xs text-smx-muted">
         <span>
           {label} {unit && <span>[{unit}]</span>}
         </span>
@@ -435,19 +497,19 @@ function ParamRow({
         <div className="flex items-center gap-2">
           <button
             onClick={() => nudge(-step)}
-            className="w-7 h-7 rounded-lg border border-smx-line bg-smx-panel2 hover:border-smx-red/30 transition"
+            className={arrowBtn}
             type="button"
           >
             ▼
           </button>
 
-          <span className="text-smx-text font-semibold min-w-[80px] text-center">
+          <span className="text-smx-text font-semibold min-w-[50px] text-center">
             {displayValue !== undefined ? Math.round(displayValue) : draft.toFixed(1)}
           </span>
 
           <button
             onClick={() => nudge(+step)}
-            className="w-7 h-7 rounded-lg border border-smx-line bg-smx-panel2 hover:border-smx-red/30 transition"
+            className={arrowBtn}
             type="button"
           >
             ▲

@@ -30,7 +30,7 @@ export default function Switch({
     >
       <span
         className={[
-          "inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition",
+          "inline-block h-7 w-7 transform rounded-full bg-white shadow-sm transition",
           checked ? "translate-x-7" : "translate-x-1",
         ].join(" ")}
       />

@@ -39,7 +39,7 @@ export default function Select<T extends string | number>({
   return (
     <div className="min-w-fit" ref={rootRef}>
       {label && (
-        <div className="text-xs text-smx-muted mb-1">{label}</div>
+        <div className="text-sm md:text-xs text-smx-muted mb-1">{label}</div>
       )}
 
       <div className="relative">

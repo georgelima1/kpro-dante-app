@@ -52,7 +52,7 @@ export default function DbScale({
             }}
           >
             <div className="h-2 w-px bg-smx-line" />
-            <div className="mt-1 text-[11px] text-smx-muted select-none whitespace-nowrap">
+            <div className="mt-1 text-sm md:text-[11px] text-smx-muted select-none whitespace-nowrap">
               {m}
             </div>
           </div>

@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { DeviceProvider, useDevice } from "../state/DeviceContext";
 import DbScale, { pctFromDb } from "../ui/DbScale";
 import FlagDot from "../ui/FlagDot";
+import { API_BASE, WS_BASE } from "../config/endpoints";
 
 export default function DashboardDevicePage() {
   const { id } = useParams();
@@ -40,8 +41,7 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
 
   // ✅ WS único recebendo VU de todos os canais
   const wsUrl = useMemo(() => {
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    return `${proto}://${location.host}/ws?deviceId=${encodeURIComponent(deviceId)}`;
+    return `${WS_BASE}/ws?deviceId=${encodeURIComponent(deviceId)}`;
   }, [deviceId]);
 
   useEffect(() => {
@@ -163,10 +163,10 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
         <div className="px-5 py-3 border-b border-smx-line flex items-center justify-between">
           <div className="min-w-0">
             <div className="text-sm font-semibold">Monitor</div>
-            <div className="text-xs text-smx-muted">Todos os canais (VU + Gain)</div>
+            <div className="text-sm md:text-xs text-smx-muted">Todos os canais (VU + Gain)</div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-smx-muted">
+          <div className="flex items-center gap-3 text-sm md:text-xs text-smx-muted">
             <div className="flex items-center gap-2">
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-smx-red/80" />
               <span>Protect</span>
@@ -183,7 +183,7 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
           {/* ====== VU BANK ====== */}
           <div className="bg-black/10 border border-smx-line rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-smx-muted">VU (RMS + Peak/Hold)</div>
+              <div className="text-sm md:text-xs text-smx-muted">VU (RMS + Peak/Hold)</div>
             </div>
 
             <div className="space-y-2">
@@ -200,7 +200,7 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
                   <div key={c.ch} className="grid grid-cols-[56px_1fr_auto] gap-3 items-center">
                     {/* Ident + dots */}
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="text-xs font-semibold text-smx-text w-8">CH{c.ch}</div>
+                      <div className="text-sm md:text-xs font-semibold text-smx-text w-8">CH{c.ch}</div>
                       <div className="flex items-center gap-1.5">
                         <FlagDot
                           on={!!c.flags?.protect}
@@ -240,7 +240,7 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
                     </div>
 
                     {/* Numbers */}
-                    <div className="text-xs text-smx-muted whitespace-nowrap">
+                    <div className="text-sm md:text-xs text-smx-muted whitespace-nowrap">
                       <span className="text-smx-text">{rmsDb.toFixed(1)}</span> dB
                       <span className="opacity-40"> • </span>
                       P <span className="text-smx-text">{peakDb.toFixed(1)}</span>
@@ -261,7 +261,7 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
           {/* ====== GAIN BANK ====== */}
           <div className="bg-black/10 border border-smx-line rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-smx-muted">Gain</div>
+              <div className="text-sm md:text-xs text-smx-muted">Gain</div>
             </div>
 
             <div className="space-y-3">
@@ -271,7 +271,7 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
 
                 return (
                   <div key={c.ch} className="grid grid-cols-[56px_1fr_auto] gap-3 items-center">
-                    <div className="text-xs font-semibold text-smx-text w-14">CH{c.ch}</div>
+                    <div className="text-sm md:text-xs font-semibold text-smx-text w-14">CH{c.ch}</div>
 
                     <input
                       type="range"
@@ -290,7 +290,7 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
                     <button
                         type="button"
                         onClick={() => stepGain(c.ch, -0.1)}
-                        className="w-6 h-6 rounded-lg border border-smx-line bg-smx-panel2
+                        className="w-7 h-7 rounded-lg border border-smx-line bg-smx-panel2
                                    flex items-center justify-center text-smx-text
                                    hover:border-smx-red/40 active:scale-95 transition"
                         title="Decrease 0.1 dB"
@@ -298,14 +298,14 @@ function DashboardDeviceInner({ deviceId }: { deviceId: string }) {
                         ▼
                       </button>
 
-                      <div className="text-xs text-smx-muted whitespace-nowrap min-w-[72px] text-center">
+                      <div className="text-sm md:text-xs text-smx-muted whitespace-nowrap min-w-[72px] text-center">
                         <span className="text-smx-text font-semibold">{g.toFixed(1)}</span> dB
                       </div>
 
                       <button
                         type="button"
                         onClick={() => stepGain(c.ch, +0.1)}
-                        className="w-6 h-6 rounded-lg border border-smx-line bg-smx-panel2
+                        className="w-7 h-7 rounded-lg border border-smx-line bg-smx-panel2
                                    flex items-center justify-center text-smx-text
                                    hover:border-smx-red/40 active:scale-95 transition"
                         title="Increase 0.1 dB"

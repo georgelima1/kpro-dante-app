@@ -38,7 +38,7 @@ export default function DevicesPage() {
       </p>
 
       <div className="mt-6 bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
-        <div className="grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_0.6fr] gap-0 px-5 py-3 text-xs text-smx-muted border-b border-smx-line">
+        <div className="grid grid-cols-[1.2fr_1fr_0.8fr_0.6fr_0.6fr] gap-0 px-5 py-3 text-sm md:text-xs text-smx-muted border-b border-smx-line">
           <div>Nome</div><div>IP</div><div>Modelo</div><div>FW</div><div>Status</div>
         </div>
 

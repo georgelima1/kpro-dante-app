@@ -72,7 +72,7 @@ export default function ChannelStrip(props: {
         <div className={`${stackGap} min-w-0 col-span-full`}>
           {/* VU */}
           <div>
-            <div className="flex items-end justify-between text-xs text-smx-muted mb-2">
+            <div className="flex items-end justify-between text-sm md:text-xs text-smx-muted mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-smx-muted">RMS</span>
                 <span className="text-smx-text">{props.rmsDb.toFixed(1)} dB</span>
@@ -104,7 +104,7 @@ export default function ChannelStrip(props: {
               {props.polarity === -1 && (
                 <>
                   <div className="absolute inset-0 bg-white/10" />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-white/90">
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 text-sm md:text-[10px] font-semibold text-white/90">
                     Ø
                   </div>
                 </>
@@ -127,7 +127,7 @@ export default function ChannelStrip(props: {
 
           {/* Gain */}
           <div className={`bg-black/10 border border-smx-line rounded-2xl ${gainPad}`}>
-            <div className="flex items-center justify-between text-xs text-smx-muted mb-1">
+            <div className="flex items-center justify-between text-sm md:text-xs text-smx-muted mb-1">
               <span>Gain</span>
 
               <div className="flex items-center gap-2">
@@ -135,7 +135,7 @@ export default function ChannelStrip(props: {
                 {/* ▼ */}
                 <button
                   onClick={() => stepGain(-0.1)}
-                  className="w-6 h-6 rounded-lg border border-smx-line bg-smx-panel2
+                  className="w-7 h-7 rounded-lg border border-smx-line bg-smx-panel2
                    flex items-center justify-center text-smx-text
                    hover:border-smx-red/40 active:scale-95 transition"
                   title="Decrease 0.1 dB"
@@ -152,7 +152,7 @@ export default function ChannelStrip(props: {
                 {/* ▲ */}
                 <button
                   onClick={() => stepGain(+0.1)}
-                  className="w-6 h-6 rounded-lg border border-smx-line bg-smx-panel2
+                  className="w-7 h-7 rounded-lg border border-smx-line bg-smx-panel2
                    flex items-center justify-center text-smx-text
                    hover:border-smx-red/40 active:scale-95 transition"
                   title="Increase 0.1 dB"

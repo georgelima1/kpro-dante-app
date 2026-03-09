@@ -69,11 +69,11 @@ function clampFreq(v: number) {
 }
 
 function clampQ(v: number) {
-  return clamp(v, 0.1, 20);
+  return clamp(v, 0.1, 10);
 }
 
 function clampGain(v: number) {
-  return clamp(v, -18, 18);
+  return clamp(v, -24, 24);
 }
 
 function findFilter(ch: ChannelStatus, filterId: number) {
@@ -452,6 +452,6 @@ wss.on("connection", (ws, req) => {
 // --------------------
 
 const PORT = 8787;
-server.listen(PORT, () => {
-  console.log(`Mock server on http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Mock server on http://0.0.0.0:${PORT}`);
 });
