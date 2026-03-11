@@ -46,6 +46,13 @@ const nav: NavItem[] = [
         href: ({ deviceId, ch }) => (deviceId ? `/devices/${deviceId}${ch ? `?ch=${ch}` : ""}` : "/devices")
     },
     {
+        key: "input",
+        label: "Input",
+        icon: "input",
+        href: ({ deviceId }) =>
+            deviceId ? `/devices/${deviceId}/input` : "/devices"
+    },
+    {
         key: "output",
         label: "Output",
         icon: "output",
@@ -141,6 +148,7 @@ export default function Shell({ children }: PropsWithChildren) {
         if (!deviceId) return "";
         if (isDeviceRoot) return "Dashboard";
 
+        if (pathname.endsWith("/input")) return "Input";
         if (pathname.endsWith("/routing")) return "Routing";
         if (pathname.endsWith("/delay")) return "Delay";
         if (pathname.endsWith("filters")) return "Filters";
@@ -159,7 +167,7 @@ export default function Shell({ children }: PropsWithChildren) {
         dsp: {
             sampleRate: number,
             delayMaxMs: number
-          };
+        };
         powerOn: boolean;
         protections?: { protect: boolean; reason?: string };
     };

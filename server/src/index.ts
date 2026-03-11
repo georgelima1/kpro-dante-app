@@ -26,6 +26,7 @@ type DeviceStatus = {
   channelsCount: number;
   dsp: { sampleRate: number; delayMaxMs: number };
   channels: ChannelStatus[];
+  input: InputPageState;
 };
 
 type FilterType =
@@ -51,6 +52,34 @@ type FilterType =
     slope?: 6 | 12 | 18 | 24 | 30 | 36 | 42 | 48;
     crossoverFamily?: CrossoverFamily;
   };
+
+  type InputSourceType = "analog" | "dante";
+
+type InputPriorityItem = {
+  source: InputSourceType;
+  thresholdDbu: number;
+};
+
+type InputChannelConfig = {
+  inputCh: number;
+  primarySource: InputSourceType;
+  backupEnabled: boolean;
+  backupSource: InputSourceType;
+  thresholdDbu: number;
+  priority: InputPriorityItem[];
+};
+
+type InputRouteCell = {
+  inputCh: number;
+  outputCh: number;
+  gainDb: number;
+  mute: boolean;
+};
+
+type InputPageState = {
+  inputs: InputChannelConfig[];
+  matrix: InputRouteCell[];
+};
 
 // -------------------- APP --------------------
 
@@ -80,18 +109,40 @@ function findFilter(ch: ChannelStatus, filterId: number) {
   return ch.filters.find((f) => f.id === filterId);
 }
 
-function getCh(dev: DeviceStatus, ch: number) {
-  const c = dev.channels.find((x) => x.ch === ch);
-  if (!c) throw new Error("Channel not found");
-  return c;
-}
-
-function maxSamples(dev: DeviceStatus) {
-  return Math.round((dev.dsp.sampleRate * dev.dsp.delayMaxMs) / 1000);
-}
-
 function jitter(center: number, amp: number) {
   return center + (Math.random() * 2 - 1) * amp;
+}
+
+function clampInputThreshold(v: number) {
+  return clamp(v, -90, 0);
+}
+
+function clampMatrixGain(v: number) {
+  return clamp(v, -120, 0);
+}
+
+function makeInputState(channelsCount: number): InputPageState {
+  return {
+    inputs: Array.from({ length: channelsCount }).map((_, i) => ({
+      inputCh: i + 1,
+      primarySource: i % 2 === 0 ? "analog" : "dante",
+      backupEnabled: i % 2 === 0,
+      backupSource: i % 2 === 0 ? "dante" : "analog",
+      thresholdDbu: -60,
+      priority: [
+        { source: i % 2 === 0 ? "analog" : "dante", thresholdDbu: -60 },
+        { source: i % 2 === 0 ? "dante" : "analog", thresholdDbu: -60 }
+      ]
+    })),
+    matrix: Array.from({ length: channelsCount }).flatMap((_, inIdx) =>
+      Array.from({ length: channelsCount }).map((__, outIdx) => ({
+        inputCh: inIdx + 1,
+        outputCh: outIdx + 1,
+        gainDb: inIdx === outIdx ? 0 : -120,
+        mute: false
+      }))
+    )
+  };
 }
 
 // -------------------- MOCK DEVICES --------------------
@@ -136,7 +187,8 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
         flags: { clip: false, limit: false, protect: false, reason: "" },
         route: { from: "Input 1", to: `Out ${ch}` }
       };
-    })
+    }),
+    input: makeInputState(channelsCount)
   };
 }
 
@@ -235,6 +287,10 @@ function makeDefaultFilters(): ChannelFilter[] {
       crossoverFamily: "butterworth"
     }
   ];
+}
+
+function makeInputStatus(channelsCount: number): string {
+  return "teste";
 }
 
 // -------------------- REST --------------------
@@ -384,6 +440,77 @@ app.post("/api/v1/devices/:id/ch/:ch/filters/:filterId", (req, res) => {
   res.json({
     filter
   });
+});
+
+// -------------------- INPUT --------------------
+
+// GET INPUT PAGE DATA
+app.get("/api/v1/devices/:id/input", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  res.json(d.input);
+});
+
+// UPDATE INPUT SOURCE / BACKUP
+app.post("/api/v1/devices/:id/input/:inputCh/source", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const inputCh = Number(req.params.inputCh);
+  const input = d.input.inputs.find((x) => x.inputCh === inputCh);
+  if (!input) return res.status(404).json({ error: "input channel not found" });
+
+  const { primarySource, backupEnabled, backupSource, thresholdDbu } = req.body ?? {};
+
+  if (primarySource === "analog" || primarySource === "dante") {
+    input.primarySource = primarySource;
+  }
+
+  if (typeof backupEnabled === "boolean") {
+    input.backupEnabled = backupEnabled;
+  }
+
+  if (backupSource === "analog" || backupSource === "dante") {
+    input.backupSource = backupSource;
+  }
+
+  if (typeof thresholdDbu === "number") {
+    input.thresholdDbu = clampInputThreshold(thresholdDbu);
+  }
+
+  input.priority = [
+    { source: input.primarySource, thresholdDbu: input.thresholdDbu },
+    { source: input.backupSource, thresholdDbu: input.thresholdDbu }
+  ];
+
+  res.json({ input });
+});
+
+// UPDATE MATRIX CELL
+app.post("/api/v1/devices/:id/input/:inputCh/output/:outputCh", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const inputCh = Number(req.params.inputCh);
+  const outputCh = Number(req.params.outputCh);
+
+  const cell = d.input.matrix.find(
+    (x) => x.inputCh === inputCh && x.outputCh === outputCh
+  );
+  if (!cell) return res.status(404).json({ error: "matrix cell not found" });
+
+  const { gainDb, mute } = req.body ?? {};
+
+  if (typeof gainDb === "number") {
+    cell.gainDb = clampMatrixGain(gainDb);
+  }
+
+  if (typeof mute === "boolean") {
+    cell.mute = mute;
+  }
+
+  res.json({ cell });
 });
 
 // -------------------- WS --------------------
