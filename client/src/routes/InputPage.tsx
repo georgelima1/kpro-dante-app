@@ -298,6 +298,24 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
           }
         ];
 
+        const analogTrimSummary = `${input.analog.trimDb.toFixed(1)} dB`;
+        const analogDelaySummary = `${samplesToMs(
+          input.analog.delay.valueSamples,
+          status.dsp.sampleRate
+        ).toFixed(2)} ms`;
+
+        const danteTrimSummary = `${input.dante.trimDb.toFixed(1)} dB`;
+        const danteDelaySummary = `${samplesToMs(
+          input.dante.delay.valueSamples,
+          status.dsp.sampleRate
+        ).toFixed(2)} ms`;
+
+        const failoverRows = input.failover.order.map((src) => ({
+          src,
+          trim: src === "analog" ? analogTrimSummary : danteTrimSummary,
+          delay: src === "analog" ? analogDelaySummary : danteDelaySummary
+        }));
+
         return (
           <section
             key={input.inputCh}
@@ -336,8 +354,8 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
             </div>
 
             {/* linha 2 */}
-            <div className="px-4 md:px-5 py-3 flex flex-col gap-2 min-[700px]:flex-row min-[700px]:items-end min-[700px]:gap-3">
-              <div className="w-full min-[700px]:w-[300px]">
+            <div className="px-4 md:px-5 py-3 flex flex-col gap-3 min-[900px]:flex-row min-[900px]:items-start min-[900px]:gap-4">
+              <div className="w-full min-[900px]:w-[300px]">
                 <Select
                   label="Source"
                   value={input.selectedSource}
@@ -350,13 +368,45 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
                 />
               </div>
 
-              <div className="text-sm md:text-xs text-smx-muted min-[700px]:pb-2">
-                Trim <span className="text-smx-text font-medium">{trimSummary}</span>
-                <span className="mx-2 opacity-40">•</span>
-                Delay <span className="text-smx-text font-medium">{delaySummary}</span>
-              </div>
-            </div>
+              {input.selectedSource !== "failover" ? (
+                <div className="min-[900px]:pt-6 text-xs md:text-[12px] text-smx-muted leading-5">
+                  <div>
+                    Trim <span className="text-smx-text font-medium">{trimSummary}</span>
+                  </div>
+                  <div>
+                    Delay <span className="text-smx-text font-medium">{delaySummary}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="min-[900px]:pt-6 flex flex-col min-[900px]:flex-row min-[900px]:items-center gap-3 min-[900px]:gap-6">
+                  <div className="text-xs md:text-[12px] text-smx-muted">
+                    {failoverRows.map((row) => (
+                      <div
+                        key={row.src}
+                        className="grid grid-cols-[72px_140px_140px] gap-x-4 items-center"
+                      >
+                        <div className="text-smx-text font-medium capitalize">{row.src}</div>
 
+                        <div>
+                          Trim <span className="text-smx-text font-medium">{row.trim}</span>
+                        </div>
+
+                        <div>
+                          Delay <span className="text-smx-text font-medium">{row.delay}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="text-xs md:text-[12px] text-smx-muted min-[900px]:self-center">
+                    Threshold{" "}
+                    <span className="text-smx-text font-medium">
+                      {input.failover.thresholdDbu.toFixed(0)} dBu
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="p-3 md:p-4 space-y-3">
               <InputDelayAccordion
                 delay={input.inputDelay}
@@ -389,7 +439,7 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
             <div
               className="grid gap-2 items-center"
               style={{
-                gridTemplateColumns: `100px repeat(${channelsCount}, minmax(110px, 1fr))`
+                gridTemplateColumns: `100px repeat(${channelsCount}, 144px)`
               }}
             >
               <div />
@@ -430,7 +480,7 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
 
                         <input
                           type="range"
-                          min={-120}
+                          min={-40}
                           max={0}
                           step={0.5}
                           value={effectiveGain}
@@ -442,27 +492,17 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
                           }
                           className="w-full smx-range smx-range-fill smx-range-red"
                           style={{
-                            ["--fill" as any]: `${((effectiveGain + 120) / 120) * 100}%`
+                            ["--fill" as any]: `${((effectiveGain + 40) / 40) * 100}%`
                           }}
                         />
 
-                        <div className="grid grid-cols-4 gap-1">
+                        <div className="grid grid-cols-3 gap-1">
                           <QuickBtn
                             label="M"
                             active={cell.mute}
                             onClick={() =>
                               updateMatrixCell(row.inputCh, outputCh, {
                                 mute: !cell.mute
-                              })
-                            }
-                          />
-                          <QuickBtn
-                            label="0"
-                            active={!cell.mute && Math.abs(cell.gainDb - 0) < 0.01}
-                            onClick={() =>
-                              updateMatrixCell(row.inputCh, outputCh, {
-                                mute: false,
-                                gainDb: 0
                               })
                             }
                           />
@@ -477,12 +517,12 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
                             }
                           />
                           <QuickBtn
-                            label="∞"
-                            active={!cell.mute && cell.gainDb <= -120}
+                            label="0"
+                            active={!cell.mute && Math.abs(cell.gainDb - 0) < 0.01}
                             onClick={() =>
                               updateMatrixCell(row.inputCh, outputCh, {
                                 mute: false,
-                                gainDb: -120
+                                gainDb: 0
                               })
                             }
                           />
@@ -526,7 +566,7 @@ function QuickBtn({
     <button
       type="button"
       onClick={onClick}
-      className={`h-8 rounded-lg border text-sm md:text-xs font-semibold transition ${active
+      className={`h-8 w-8 rounded-lg border text-sm md:text-xs font-semibold transition ${active
         ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
         : "bg-smx-panel border-smx-line text-smx-muted hover:border-smx-red/30"
         }`}

@@ -59,13 +59,6 @@ const nav: NavItem[] = [
         href: ({ deviceId, ch }) => (deviceId ? `/devices/${deviceId}/routing${ch ? `?ch=${ch}` : ""}` : "/devices"),
         children: [
             {
-                key: "routing",
-                label: "Routing",
-                icon: "route",
-                href: ({ deviceId, ch }) =>
-                    deviceId ? `/devices/${deviceId}/routing${ch ? `?ch=${ch}` : ""}` : "/devices"
-            },
-            {
                 key: "delay",
                 label: "Delay",
                 icon: "timer",

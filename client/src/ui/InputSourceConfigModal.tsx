@@ -37,25 +37,25 @@ export default function InputSourceConfigModal({
   onFailoverChange: (patch: Partial<FailoverConfig>) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center p-2 md:p-6">
-      <div className="w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-2xl border border-smx-line bg-smx-panel shadow-2xl">
-        <div className="px-5 py-4 border-b border-smx-line flex items-center justify-between">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-6">
+      <div className="w-full md:max-w-[980px] max-h-[88vh] md:max-h-[85vh] overflow-hidden rounded-t-2xl md:rounded-2xl border border-smx-line bg-smx-panel shadow-2xl">
+        <div className="px-4 md:px-5 py-3 border-b border-smx-line flex items-start justify-between gap-3">
           <div>
-            <div className="text-lg md:text-base font-semibold">Source</div>
+            <div className="text-base font-semibold">Source</div>
             <div className="text-sm md:text-xs text-smx-muted">IN {input.inputCh}</div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-10 h-10 rounded-2xl border border-smx-line bg-smx-panel2 text-white hover:border-smx-red/30 transition"
+            className="w-10 h-10 rounded-2xl border border-smx-line bg-smx-panel2 text-white hover:border-smx-red/30 transition shrink-0"
             title="Close"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-5 overflow-y-auto max-h-[calc(92vh-80px)]">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="p-4 md:p-5 overflow-y-auto max-h-[calc(85vh-72px)]">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             <SourceCard
               title="Analog"
               sourceKey="analog"

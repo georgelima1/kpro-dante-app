@@ -42,12 +42,15 @@ export default function InputFiltersAccordion({
       </button>
 
       {open && (
-        <div className="px-3 pb-3">
-          <InputFiltersEditor
-            filters={filters}
-            onFilterChange={onFilterChange}
-          />
-        </div>
+        <>
+          <div className="border-t border-smx-line" />
+          <div className="p-4">
+            <InputFiltersEditor
+              filters={filters}
+              onFilterChange={onFilterChange}
+            />
+          </div>
+        </>
       )}
     </div>
   );
