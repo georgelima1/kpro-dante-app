@@ -2,32 +2,73 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DeviceProvider, useDevice } from "../state/DeviceContext";
 import { API_BASE } from "../config/endpoints";
+import InputDelayAccordion from "../ui/InputDelayAccordion";
+import InputFiltersAccordion from "../ui/InputFiltersAccordion";
+import InputSourceConfigModal from "../ui/InputSourceConfigModal";
 import Select from "../ui/Select";
 
-type InputSourceType = "analog" | "dante";
+export type FilterType =
+  | "hpf"
+  | "lpf"
+  | "parametric"
+  | "low_shelf"
+  | "high_shelf"
+  | "tilt_shelf"
+  | "all_pass"
+  | "band_pass"
+  | "notch";
 
-type InputPriorityItem = {
-  source: InputSourceType;
-  thresholdDbu: number;
+export type CrossoverFamily = "butterworth" | "linkwitz_riley" | "bessel";
+
+export type InputFilter = {
+  id: number;
+  enabled: boolean;
+  type: FilterType;
+  freqHz: number;
+  q: number;
+  gainDb: number;
+  slope?: 6 | 12 | 18 | 24 | 30 | 36 | 42 | 48;
+  crossoverFamily?: CrossoverFamily;
 };
 
-type InputChannelConfig = {
+export type InputSourceMode = "analog" | "dante" | "failover";
+export type PhysicalSource = "analog" | "dante";
+
+export type SourceProcessing = {
+  trimDb: number;
+  delay: {
+    enabled: boolean;
+    valueSamples: number;
+  };
+};
+
+export type FailoverConfig = {
+  thresholdDbu: number;
+  order: PhysicalSource[];
+};
+
+export type InputChannelConfig = {
   inputCh: number;
-  primarySource: InputSourceType;
-  backupEnabled: boolean;
-  backupSource: InputSourceType;
-  thresholdDbu: number;
-  priority: InputPriorityItem[];
+  selectedSource: InputSourceMode;
+  mute: boolean;
+  analog: SourceProcessing;
+  dante: SourceProcessing;
+  failover: FailoverConfig;
+  inputDelay: {
+    enabled: boolean;
+    valueSamples: number;
+  };
+  filters: InputFilter[];
 };
 
-type InputRouteCell = {
+export type InputRouteCell = {
   inputCh: number;
   outputCh: number;
   gainDb: number;
   mute: boolean;
 };
 
-type InputPageState = {
+export type InputPageState = {
   inputs: InputChannelConfig[];
   matrix: InputRouteCell[];
 };
@@ -48,6 +89,7 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
   const channelsCount = status?.channelsCount ?? 0;
 
   const [data, setData] = useState<InputPageState | null>(null);
+  const [editingInputCh, setEditingInputCh] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -68,8 +110,8 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
     };
   }, [deviceId]);
 
-  async function updateInput(inputCh: number, patch: Partial<InputChannelConfig>) {
-    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/input/${inputCh}/source`, {
+  async function updateInputMeta(inputCh: number, patch: Partial<InputChannelConfig>) {
+    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/input/${inputCh}/meta`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch)
@@ -81,6 +123,98 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
       return {
         ...prev,
         inputs: prev.inputs.map((x) => (x.inputCh === inputCh ? j.input : x))
+      };
+    });
+  }
+
+  async function updateSourceProcessing(
+    inputCh: number,
+    sourceKey: "analog" | "dante",
+    patch: Partial<SourceProcessing>
+  ) {
+    const r = await fetch(
+      `${API_BASE}/api/v1/devices/${deviceId}/input/${inputCh}/source/${sourceKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch)
+      }
+    );
+    const j = await r.json();
+
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        inputs: prev.inputs.map((x) => (x.inputCh === inputCh ? j.input : x))
+      };
+    });
+  }
+
+  async function updateFailover(inputCh: number, patch: Partial<FailoverConfig>) {
+    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/input/${inputCh}/failover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch)
+    });
+    const j = await r.json();
+
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        inputs: prev.inputs.map((x) => (x.inputCh === inputCh ? j.input : x))
+      };
+    });
+  }
+
+  async function updateInputDelay(
+    inputCh: number,
+    patch: Partial<InputChannelConfig["inputDelay"]>
+  ) {
+    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/input/${inputCh}/input-delay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch)
+    });
+    const j = await r.json();
+
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        inputs: prev.inputs.map((x) => (x.inputCh === inputCh ? j.input : x))
+      };
+    });
+  }
+
+  async function updateInputFilter(
+    inputCh: number,
+    filterId: number,
+    patch: Partial<InputFilter>
+  ) {
+    const r = await fetch(
+      `${API_BASE}/api/v1/devices/${deviceId}/input/${inputCh}/filters/${filterId}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch)
+      }
+    );
+    const j = await r.json();
+
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        inputs: prev.inputs.map((x) =>
+          x.inputCh !== inputCh
+            ? x
+            : {
+              ...x,
+              filters: x.filters.map((f) => (f.id === filterId ? j.filter : f))
+            }
+        )
       };
     });
   }
@@ -111,6 +245,11 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
     });
   }
 
+  const editingInput = useMemo(
+    () => data?.inputs.find((x) => x.inputCh === editingInputCh) ?? null,
+    [data, editingInputCh]
+  );
+
   const matrixByInput = useMemo(() => {
     if (!data) return [];
     return Array.from({ length: channelsCount }).map((_, i) => {
@@ -128,242 +267,253 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
 
   return (
     <div className="w-full max-w-none space-y-6">
-      <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-smx-line flex items-center justify-between">
-          <div>
-            <div className="text-lg md:text-base font-semibold">Input</div>
-            <div className="text-sm md:text-xs text-smx-muted">
-              Input source, backup and routing matrix
+      {data.inputs.map((input) => {
+        const activePhysicalSource: PhysicalSource =
+          input.selectedSource === "analog"
+            ? "analog"
+            : input.selectedSource === "dante"
+              ? "dante"
+              : input.failover.order[0] ?? "analog";
+
+        const activeProc = activePhysicalSource === "analog" ? input.analog : input.dante;
+
+        const trimSummary = `${activeProc.trimDb.toFixed(1)} dB`;
+        const delaySummary = `${samplesToMs(
+          activeProc.delay.valueSamples,
+          status.dsp.sampleRate
+        ).toFixed(2)} ms`;
+
+        const sourceOptions = [
+          {
+            value: "analog",
+            label: "Analog"
+          },
+          {
+            value: "dante",
+            label: "Dante"
+          },
+          {
+            value: "failover",
+            label: `Failover (${input.failover.order[0]} > ${input.failover.order[1]})`
+          }
+        ];
+
+        return (
+          <section
+            key={input.inputCh}
+            className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden"
+          >
+            <div className="px-4 md:px-5 py-3 border-b border-smx-line">
+              {/* linha 1 */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="text-base font-semibold text-smx-text">
+                  IN {input.inputCh}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => updateInputMeta(input.inputCh, { mute: !input.mute })}
+                    className={`w-10 h-10 rounded-2xl border flex items-center justify-center
+          transition-all duration-200 active:scale-95 font-semibold
+          ${input.mute
+                        ? "bg-smx-red/25 border-smx-red text-smx-red shadow-md"
+                        : "bg-smx-panel2 border-smx-line text-white hover:border-smx-red/40"
+                      }`}
+                    title="Mute"
+                  >
+                    M
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEditingInputCh(input.inputCh)}
+                    className="px-4 h-10 rounded-2xl border bg-smx-panel2 border-smx-line text-sm font-semibold text-smx-text hover:border-smx-red/30 transition"
+                  >
+                    Set
+                  </button>
+                </div>
+              </div>
             </div>
+
+            {/* linha 2 */}
+            <div className="px-4 md:px-5 py-3 flex flex-col gap-2 min-[700px]:flex-row min-[700px]:items-end min-[700px]:gap-3">
+              <div className="w-full min-[700px]:w-[300px]">
+                <Select
+                  label="Source"
+                  value={input.selectedSource}
+                  options={sourceOptions}
+                  onChange={(value) =>
+                    updateInputMeta(input.inputCh, {
+                      selectedSource: value as InputSourceMode
+                    })
+                  }
+                />
+              </div>
+
+              <div className="text-sm md:text-xs text-smx-muted min-[700px]:pb-2">
+                Trim <span className="text-smx-text font-medium">{trimSummary}</span>
+                <span className="mx-2 opacity-40">•</span>
+                Delay <span className="text-smx-text font-medium">{delaySummary}</span>
+              </div>
+            </div>
+
+            <div className="p-3 md:p-4 space-y-3">
+              <InputDelayAccordion
+                delay={input.inputDelay}
+                sampleRate={status.dsp.sampleRate}
+                delayMaxMs={status.dsp.delayMaxMs}
+                onChange={(patch) => updateInputDelay(input.inputCh, patch)}
+              />
+
+              <InputFiltersAccordion
+                filters={input.filters}
+                onFilterChange={(filterId, patch) =>
+                  updateInputFilter(input.inputCh, filterId, patch)
+                }
+              />
+            </div>
+          </section>
+        );
+      })}
+
+      <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-smx-line">
+          <div className="text-base font-semibold">Routing Matrix</div>
+          <div className="text-sm md:text-xs text-smx-muted">
+            Input to output trim matrix
           </div>
         </div>
 
-        <div className="p-5 space-y-5">
-          {/* Source cards */}
-          <div className="bg-black/10 border border-smx-line rounded-2xl p-4">
-            <div className="text-sm font-semibold mb-4">Source / Backup</div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              {data.inputs.map((input) => (
-                <InputSourceCard
-                  key={input.inputCh}
-                  input={input}
-                  onChange={(patch) => updateInput(input.inputCh, patch)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Matrix */}
-          <div className="bg-black/10 border border-smx-line rounded-2xl p-4 overflow-hidden">
-            <div className="text-sm font-semibold mb-4">Routing Matrix</div>
-
-            <div className="overflow-x-auto">
-              <div className="min-w-[720px]">
+        <div className="p-4 overflow-x-auto">
+          <div className="min-w-[720px]">
+            <div
+              className="grid gap-2 items-center"
+              style={{
+                gridTemplateColumns: `100px repeat(${channelsCount}, minmax(110px, 1fr))`
+              }}
+            >
+              <div />
+              {Array.from({ length: channelsCount }).map((_, i) => (
                 <div
-                  className="grid gap-2 items-center"
-                  style={{
-                    gridTemplateColumns: `100px repeat(${channelsCount}, minmax(110px, 1fr))`
-                  }}
+                  key={`head-${i + 1}`}
+                  className="text-center text-sm md:text-xs text-smx-muted font-semibold"
                 >
-                  <div />
-                  {Array.from({ length: channelsCount }).map((_, i) => (
-                    <div
-                      key={`head-${i + 1}`}
-                      className="text-center text-sm md:text-xs text-smx-muted font-semibold"
-                    >
-                      OUT {i + 1}
-                    </div>
-                  ))}
+                  OUT {i + 1}
+                </div>
+              ))}
 
-                  {matrixByInput.map((row) => (
-                    <React.Fragment key={`row-${row.inputCh}`}>
-                      <div className="text-sm font-semibold text-smx-text">
-                        IN {row.inputCh}
-                      </div>
+              {matrixByInput.map((row) => (
+                <React.Fragment key={`row-${row.inputCh}`}>
+                  <div className="text-sm font-semibold text-smx-text">
+                    IN {row.inputCh}
+                  </div>
 
-                      {Array.from({ length: channelsCount }).map((_, outIdx) => {
-                        const outputCh = outIdx + 1;
-                        const cell = row.cells.find((c) => c.outputCh === outputCh);
+                  {Array.from({ length: channelsCount }).map((_, outIdx) => {
+                    const outputCh = outIdx + 1;
+                    const cell = row.cells.find((c) => c.outputCh === outputCh);
+                    if (!cell) return <div key={`${row.inputCh}-${outputCh}`} />;
 
-                        if (!cell) return <div key={`${row.inputCh}-${outputCh}`} />;
+                    const effectiveGain = cell.mute ? -120 : cell.gainDb;
 
-                        return (
-                          <InputMatrixCell
-                            key={`${row.inputCh}-${outputCh}`}
-                            cell={cell}
-                            onChange={(patch) =>
-                              updateMatrixCell(row.inputCh, outputCh, patch)
+                    return (
+                      <div
+                        key={`${row.inputCh}-${outputCh}`}
+                        className="rounded-xl border border-smx-line bg-smx-panel2 p-2 space-y-2"
+                      >
+                        <div className="text-center text-sm md:text-xs">
+                          <span className="font-semibold text-smx-text">
+                            {cell.mute || effectiveGain <= -120
+                              ? "-∞"
+                              : `${effectiveGain.toFixed(1)} dB`}
+                          </span>
+                        </div>
+
+                        <input
+                          type="range"
+                          min={-120}
+                          max={0}
+                          step={0.5}
+                          value={effectiveGain}
+                          onChange={(e) =>
+                            updateMatrixCell(row.inputCh, outputCh, {
+                              mute: false,
+                              gainDb: Number(e.target.value)
+                            })
+                          }
+                          className="w-full smx-range smx-range-fill smx-range-red"
+                          style={{
+                            ["--fill" as any]: `${((effectiveGain + 120) / 120) * 100}%`
+                          }}
+                        />
+
+                        <div className="grid grid-cols-4 gap-1">
+                          <QuickBtn
+                            label="M"
+                            active={cell.mute}
+                            onClick={() =>
+                              updateMatrixCell(row.inputCh, outputCh, {
+                                mute: !cell.mute
+                              })
                             }
                           />
-                        );
-                      })}
-                    </React.Fragment>
-                  ))}
-                </div>
-              </div>
+                          <QuickBtn
+                            label="0"
+                            active={!cell.mute && Math.abs(cell.gainDb - 0) < 0.01}
+                            onClick={() =>
+                              updateMatrixCell(row.inputCh, outputCh, {
+                                mute: false,
+                                gainDb: 0
+                              })
+                            }
+                          />
+                          <QuickBtn
+                            label="-6"
+                            active={!cell.mute && Math.abs(cell.gainDb + 6) < 0.01}
+                            onClick={() =>
+                              updateMatrixCell(row.inputCh, outputCh, {
+                                mute: false,
+                                gainDb: -6
+                              })
+                            }
+                          />
+                          <QuickBtn
+                            label="∞"
+                            active={!cell.mute && cell.gainDb <= -120}
+                            onClick={() =>
+                              updateMatrixCell(row.inputCh, outputCh, {
+                                mute: false,
+                                gainDb: -120
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
             </div>
           </div>
         </div>
       </section>
+
+      {editingInput && (
+        <InputSourceConfigModal
+          input={editingInput}
+          sampleRate={status.dsp.sampleRate}
+          delayMaxMs={status.dsp.delayMaxMs}
+          onClose={() => setEditingInputCh(null)}
+          onSourceProcessingChange={(sourceKey, patch) =>
+            updateSourceProcessing(editingInput.inputCh, sourceKey, patch)
+          }
+          onFailoverChange={(patch) => updateFailover(editingInput.inputCh, patch)}
+        />
+      )}
     </div>
   );
 }
 
-function InputSourceCard({
-  input,
-  onChange
-}: {
-  input: InputChannelConfig;
-  onChange: (patch: Partial<InputChannelConfig>) => void;
-}) {
-  const sourceOptions = [
-    { value: "analog", label: "Analog" },
-    { value: "dante", label: "Dante" }
-  ] as const;
-
-  return (
-    <div className="bg-smx-panel2 border border-smx-line rounded-2xl p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="font-semibold">IN {input.inputCh}</div>
-
-        <button
-          onClick={() => onChange({ backupEnabled: !input.backupEnabled })}
-          className={`relative w-12 h-6 rounded-full border transition ${
-            input.backupEnabled
-              ? "bg-smx-red/30 border-smx-red/50"
-              : "bg-smx-panel border-smx-line"
-          }`}
-          aria-label="Backup On/Off"
-          title="Backup On/Off"
-          type="button"
-        >
-          <span
-            className={`absolute top-[0.07rem] left-[0.05rem] w-5 h-5 rounded-full transition-transform ${
-              input.backupEnabled ? "translate-x-6 bg-white" : "translate-x-0 bg-white/80"
-            }`}
-          />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Select
-          label="Primary Source"
-          value={input.primarySource}
-          options={sourceOptions.map((o) => ({ value: o.value, label: o.label }))}
-          onChange={(value) => {
-            const primarySource = value as InputSourceType;
-            const backupSource = primarySource === "analog" ? "dante" : "analog";
-            onChange({ primarySource, backupSource });
-          }}
-        />
-
-        <Select
-          label="Backup Source"
-          value={input.backupSource}
-          options={sourceOptions.map((o) => ({ value: o.value, label: o.label }))}
-          onChange={(value) => onChange({ backupSource: value as InputSourceType })}
-        />
-      </div>
-
-      <div className={!input.backupEnabled ? "opacity-45 grayscale pointer-events-none" : ""}>
-        <div className="flex items-center justify-between mb-2 text-sm md:text-xs text-smx-muted">
-          <span>Signal Loss Threshold [dBu]</span>
-          <span className="text-smx-text font-semibold">{input.thresholdDbu.toFixed(1)} dBu</span>
-        </div>
-
-        <input
-          type="range"
-          min={-90}
-          max={0}
-          step={1}
-          value={input.thresholdDbu}
-          onChange={(e) => onChange({ thresholdDbu: Number(e.target.value) })}
-          className="w-full smx-range smx-range-fill smx-range-red"
-          style={{
-            ["--fill" as any]: `${((input.thresholdDbu + 90) / 90) * 100}%`
-          }}
-        />
-
-        <div className="mt-2 flex justify-between text-sm md:text-xs text-smx-muted">
-          <span>-90</span>
-          <span>-60</span>
-          <span>-30</span>
-          <span>0</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InputMatrixCell({
-  cell,
-  onChange
-}: {
-  cell: InputRouteCell;
-  onChange: (patch: Partial<InputRouteCell>) => void;
-}) {
-  function setPreset(kind: "mute" | "0" | "-6" | "inf") {
-    if (kind === "mute") {
-      onChange({ mute: !cell.mute });
-      return;
-    }
-
-    if (kind === "0") onChange({ mute: false, gainDb: 0 });
-    if (kind === "-6") onChange({ mute: false, gainDb: -6 });
-    if (kind === "inf") onChange({ mute: false, gainDb: -120 });
-  }
-
-  const effectiveGain = cell.mute ? -120 : cell.gainDb;
-
-  return (
-    <div className="rounded-xl border border-smx-line bg-smx-panel2 p-2 space-y-2">
-      <div className="text-center text-sm md:text-xs">
-        <span className="font-semibold text-smx-text">
-          {cell.mute || effectiveGain <= -120 ? "-∞" : `${effectiveGain.toFixed(1)} dB`}
-        </span>
-      </div>
-
-      <input
-        type="range"
-        min={-120}
-        max={0}
-        step={0.5}
-        value={effectiveGain}
-        onChange={(e) => onChange({ mute: false, gainDb: Number(e.target.value) })}
-        className="w-full smx-range smx-range-fill smx-range-red"
-        style={{
-          ["--fill" as any]: `${((effectiveGain + 120) / 120) * 100}%`
-        }}
-      />
-
-      <div className="grid grid-cols-4 gap-1">
-        <QuickCellButton
-          active={cell.mute}
-          onClick={() => setPreset("mute")}
-          label="M"
-        />
-        <QuickCellButton
-          active={!cell.mute && Math.abs(cell.gainDb - 0) < 0.01}
-          onClick={() => setPreset("0")}
-          label="0"
-        />
-        <QuickCellButton
-          active={!cell.mute && Math.abs(cell.gainDb + 6) < 0.01}
-          onClick={() => setPreset("-6")}
-          label="-6"
-        />
-        <QuickCellButton
-          active={!cell.mute && cell.gainDb <= -120}
-          onClick={() => setPreset("inf")}
-          label="∞"
-        />
-      </div>
-    </div>
-  );
-}
-
-function QuickCellButton({
+function QuickBtn({
   label,
   active,
   onClick
@@ -376,13 +526,16 @@ function QuickCellButton({
     <button
       type="button"
       onClick={onClick}
-      className={`h-8 rounded-lg border text-sm md:text-xs font-semibold transition ${
-        active
-          ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
-          : "bg-smx-panel border-smx-line text-smx-muted hover:border-smx-red/30"
-      }`}
+      className={`h-8 rounded-lg border text-sm md:text-xs font-semibold transition ${active
+        ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
+        : "bg-smx-panel border-smx-line text-smx-muted hover:border-smx-red/30"
+        }`}
     >
       {label}
     </button>
   );
+}
+
+function samplesToMs(samples: number, sampleRate: number) {
+  return (samples / sampleRate) * 1000;
 }
