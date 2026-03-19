@@ -21,6 +21,7 @@
         "tabWidth": 2
     },
     "dependencies": {
-        "lucide-react": "^0.577.0"
+        "lucide-react": "^0.577.0",
+        "multer": "^2.1.1"
     }
 }

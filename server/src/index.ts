@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { WebSocketServer } from "ws";
 import http from "http";
+import multer from "multer";
 
 // -------------------- TYPES --------------------
 
@@ -40,6 +41,13 @@ type InputFilter = {
   crossoverFamily?: CrossoverFamily;
 };
 
+type FirState = {
+  enabled: boolean;
+  loaded: boolean;
+  fileName?: string;
+  taps?: number;
+};
+
 type ChannelStatus = {
   ch: number;
   name?: string;
@@ -47,6 +55,7 @@ type ChannelStatus = {
   meters: { rmsDb: number; peakDb: number };
   delay: { enabled: boolean; valueSamples: number };
   filters: ChannelFilter[];
+  fir: FirState;
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
 };
@@ -111,6 +120,8 @@ type DeviceStatus = {
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 // -------------------- UTILS --------------------
 
@@ -302,6 +313,15 @@ function makeDefaultInputFilters(): InputFilter[] {
   ];
 }
 
+function makeDefaultFir(): FirState {
+  return {
+    enabled: false,
+    loaded: false,
+    fileName: "",
+    taps: 0
+  };
+}
+
 function makeInputState(channelsCount: number): InputPageState {
   return {
     inputs: Array.from({ length: channelsCount }).map((_, i) => ({
@@ -375,6 +395,7 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
           enabled: true,
           valueSamples: 0
         },
+        fir: makeDefaultFir(),
         flags: { clip: false, limit: false, protect: false, reason: "" },
         route: { from: "Input 1", to: `Out ${ch}` }
       };
@@ -738,6 +759,88 @@ app.post("/api/v1/devices/:id/input/:inputCh/output/:outputCh", (req, res) => {
   }
 
   res.json({ cell });
+});
+
+// -------------------- FIR --------------------
+
+app.get("/api/v1/devices/:id/ch/:ch/fir", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  res.json({
+    fir: channel.fir ?? makeDefaultFir()
+  });
+});
+
+app.post("/api/v1/devices/:id/ch/:ch/fir", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  if (!channel.fir) {
+    channel.fir = makeDefaultFir();
+  }
+
+  const body = req.body ?? {};
+
+  if (typeof body.enabled === "boolean") {
+    channel.fir.enabled = body.enabled;
+  }
+
+  if (typeof body.loaded === "boolean") {
+    channel.fir.loaded = body.loaded;
+  }
+
+  if (typeof body.fileName === "string") {
+    channel.fir.fileName = body.fileName;
+  }
+
+  if (typeof body.taps === "number") {
+    channel.fir.taps = Math.max(0, Math.round(body.taps));
+  }
+
+  res.json({ fir: channel.fir });
+});
+
+app.post("/api/v1/devices/:id/ch/:ch/fir/upload", upload.single("file"), (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ error: "file not provided" });
+  }
+
+  const text = file.buffer.toString("utf-8");
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) {
+    return res.status(400).json({ error: "empty file" });
+  }
+
+  if (lines.length > 512) {
+    return res.status(400).json({ error: "maximum 512 coefficients" });
+  }
+
+  channel.fir.loaded = true;
+  channel.fir.fileName = file.originalname;
+  channel.fir.taps = lines.length;
+
+  res.json({ fir: channel.fir });
 });
 
 // -------------------- WS --------------------

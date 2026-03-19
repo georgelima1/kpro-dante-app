@@ -43,7 +43,8 @@ const nav: NavItem[] = [
         key: "dashboard",
         label: "Dashboard",
         icon: "dashboard",
-        href: ({ deviceId, ch }) => (deviceId ? `/devices/${deviceId}${ch ? `?ch=${ch}` : ""}` : "/devices")
+        href: ({ deviceId, ch }) =>
+            deviceId ? `/devices/${deviceId}${ch ? `?ch=${ch}` : ""}` : "/devices"
     },
     {
         key: "input",
@@ -56,8 +57,16 @@ const nav: NavItem[] = [
         key: "output",
         label: "Output",
         icon: "output",
-        href: ({ deviceId, ch }) => (deviceId ? `/devices/${deviceId}/routing${ch ? `?ch=${ch}` : ""}` : "/devices"),
+        href: ({ deviceId, ch }) =>
+            deviceId ? `/devices/${deviceId}/routing${ch ? `?ch=${ch}` : ""}` : "/devices",
         children: [
+            {
+                key: "routing",
+                label: "Routing",
+                icon: "route",
+                href: ({ deviceId, ch }) =>
+                    deviceId ? `/devices/${deviceId}/routing${ch ? `?ch=${ch}` : ""}` : "/devices"
+            },
             {
                 key: "delay",
                 label: "Delay",
@@ -67,7 +76,7 @@ const nav: NavItem[] = [
             },
             {
                 key: "filters",
-                label: "Filters",
+                label: "Equalizer",
                 icon: "equalizer",
                 href: ({ deviceId, ch }) =>
                     deviceId ? `/devices/${deviceId}/filters${ch ? `?ch=${ch}` : ""}` : "/devices"
@@ -77,7 +86,58 @@ const nav: NavItem[] = [
                 label: "Speaker Preset",
                 icon: "speaker",
                 href: ({ deviceId, ch }) =>
-                    deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+                    deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices",
+                children: [
+                    {
+                        key: "speaker-crossover-gain",
+                        label: "Crossover & Gain",
+                        icon: "tune",
+                        href: ({ deviceId, ch }) =>
+                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+                    },
+                    {
+                        key: "speaker-eq",
+                        label: "Speaker Eq",
+                        icon: "equalizer",
+                        href: ({ deviceId, ch }) =>
+                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+                    },
+                    {
+                        key: "speaker-fir",
+                        label: "FIR",
+                        icon: "graphic_eq",
+                        href: ({ deviceId, ch }) =>
+                            deviceId ? `/devices/${deviceId}/speaker/fir${ch ? `?ch=${ch}` : ""}` : "/devices"
+                    },
+                    {
+                        key: "speaker-driver-alignment",
+                        label: "Driver Alignment",
+                        icon: "align_horizontal_left",
+                        href: ({ deviceId, ch }) =>
+                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+                    },
+                    {
+                        key: "speaker-polarity",
+                        label: "Polarity",
+                        icon: "contrast",
+                        href: ({ deviceId, ch }) =>
+                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+                    },
+                    {
+                        key: "speaker-limiter",
+                        label: "Limiter",
+                        icon: "speed",
+                        href: ({ deviceId, ch }) =>
+                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+                    },
+                    {
+                        key: "speaker-output-mode",
+                        label: "Output Mode",
+                        icon: "speaker_notes",
+                        href: ({ deviceId, ch }) =>
+                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+                    }
+                ]
             }
         ]
     },
@@ -85,7 +145,8 @@ const nav: NavItem[] = [
         key: "settings",
         label: "Settings",
         icon: "settings",
-        href: ({ deviceId, ch }) => (deviceId ? `/devices/${deviceId}${ch ? `?ch=${ch}` : ""}` : "/devices"),
+        href: ({ deviceId, ch }) =>
+            deviceId ? `/devices/${deviceId}${ch ? `?ch=${ch}` : ""}` : "/devices",
         disabled: true
     }
 ];
@@ -145,6 +206,7 @@ export default function Shell({ children }: PropsWithChildren) {
         if (pathname.endsWith("/routing")) return "Routing";
         if (pathname.endsWith("/delay")) return "Delay";
         if (pathname.endsWith("filters")) return "Filters";
+        if (pathname.endsWith("/speaker/fir")) return "FIR";
         if (pathname.endsWith("/speaker")) return "Speaker Preset";
 
         return ""; // fallback
@@ -213,6 +275,8 @@ export default function Shell({ children }: PropsWithChildren) {
     // controla expansão do grupo Output
     const [openOutput, setOpenOutput] = useState(true);
 
+    const [openSpeaker, setOpenSpeaker] = useState(true);
+
     const [outputFlyoutOpen, setOutputFlyoutOpen] = useState(false);
 
     const sidebarWidth = collapsed ? 100 : 288;
@@ -258,14 +322,50 @@ export default function Shell({ children }: PropsWithChildren) {
 
             // 3) Output (grupo): ativo em qualquer subrota de output
             if (item.key === "output") {
-                return !!matchPath({ path: "/devices/:id/:sub", end: true }, pathname) &&
-                    ["/routing", "/delay", "filters", "/speaker"].some(seg => pathname.endsWith(seg));
+                return (
+                    pathname.endsWith("/routing") ||
+                    pathname.endsWith("/delay") ||
+                    pathname.endsWith("/filters") ||
+                    pathname.includes("/speaker")
+                );
             }
 
             // 4) Subitens do Output (routing/delay/filters/speaker): match exato
-            if (["routing", "delay", "filters", "speaker"].includes(item.key)) {
+            if (["routing", "delay", "filters"].includes(item.key)) {
                 return !!matchPath({ path: `/devices/:id/${item.key}`, end: true }, pathname);
             }
+
+            if (item.key === "speaker") {
+                return pathname.startsWith(`/devices/${deviceId}/speaker`);
+            }
+
+            if (item.key === "speaker-crossover-gain") {
+                return false;
+              }
+              
+              if (item.key === "speaker-eq") {
+                return false;
+              }
+              
+              if (item.key === "speaker-fir") {
+                return pathname === `/devices/${deviceId}/speaker/fir`;
+              }
+              
+              if (item.key === "speaker-driver-alignment") {
+                return false;
+              }
+              
+              if (item.key === "speaker-polarity") {
+                return false;
+              }
+              
+              if (item.key === "speaker-limiter") {
+                return false;
+              }
+              
+              if (item.key === "speaker-output-mode") {
+                return false;
+              }
 
             // 5) fallback: match exato por basePath
             return pathname === basePath;
@@ -308,13 +408,29 @@ export default function Shell({ children }: PropsWithChildren) {
                         type="button"
                         onClick={(e) => {
                             e.preventDefault();
-                            setOpenOutput((v) => !v);
+
+                            if (item.key === "output") {
+                                setOpenOutput((v) => !v);
+                            } else if (item.key === "speaker") {
+                                setOpenSpeaker((v) => !v);
+                            }
                         }}
                         className="p-1 rounded-lg hover:bg-white/5"
                         aria-label="Expandir/Recolher"
                         title="Expandir/Recolher"
                     >
-                        <Icon name={openOutput ? "expand_less" : "expand_more"} className="text-smx-muted" />
+                        <Icon
+                            name={
+                                item.key === "output"
+                                    ? openOutput
+                                        ? "expand_less"
+                                        : "expand_more"
+                                    : openSpeaker
+                                        ? "expand_less"
+                                        : "expand_more"
+                            }
+                            className="text-smx-muted"
+                        />
                     </button>
                 )}
             </>
@@ -381,7 +497,17 @@ export default function Shell({ children }: PropsWithChildren) {
                             {!compact && item.key === "output" && openOutput && item.children && (
                                 <div className="mt-2 space-y-2">
                                     {item.children.map((c) => (
-                                        <NavLinkItem key={c.key} item={c} compact={compact} level={1} />
+                                        <div key={c.key}>
+                                            <NavLinkItem item={c} compact={compact} level={1} />
+
+                                            {!compact && c.key === "speaker" && openSpeaker && c.children && (
+                                                <div className="mt-2 space-y-2">
+                                                    {c.children.map((sub) => (
+                                                        <NavLinkItem key={sub.key} item={sub} compact={compact} level={2} />
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                             )}
