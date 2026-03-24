@@ -14,7 +14,7 @@ export default function SpeakerPresetFIRPage() {
   const { status, deviceId, ch } = useDevice();
   const channel = status?.channels?.find((c) => c.ch === ch);
 
-  const [fir, setFir] = useState<FirState>({
+  const [speakerFir, setFir] = useState<FirState>({
     enabled: false,
     loaded: false,
     fileName: "",
@@ -34,7 +34,7 @@ export default function SpeakerPresetFIRPage() {
         const j = await r.json();
         if (alive) {
           setFir(
-            j.fir ?? {
+            j.speakerFir ?? {
               enabled: false,
               loaded: false,
               fileName: "",
@@ -71,7 +71,7 @@ export default function SpeakerPresetFIRPage() {
 
     const j = await r.json();
     setFir(
-      j.fir ?? {
+      j.speakerFir ?? {
         enabled: false,
         loaded: false,
         fileName: "",
@@ -101,7 +101,7 @@ export default function SpeakerPresetFIRPage() {
 
     const j = await r.json();
     setFir(
-      j.fir ?? {
+      j.speakerFir ?? {
         enabled: false,
         loaded: false,
         fileName: "",
@@ -119,40 +119,38 @@ export default function SpeakerPresetFIRPage() {
           <div className="flex items-center gap-3">
             <div className="text-base font-semibold">FIR</div>
             <div className="text-sm md:text-xs text-smx-muted">
-              CH {ch} • Finite impulse response
+              CH {ch} • Finite Impulse Response
             </div>
           </div>
 
           <button
-            onClick={() => updateFir({ enabled: !fir.enabled })}
-            className={`relative w-12 h-6 rounded-full border transition ${
-              fir.enabled
+            onClick={() => updateFir({ enabled: !speakerFir.enabled })}
+            className={`relative w-12 h-6 rounded-full border transition ${speakerFir.enabled
                 ? "bg-smx-red/30 border-smx-red/50"
                 : "bg-smx-panel2 border-smx-line"
-            }`}
+              }`}
             aria-label="FIR On/Off"
             title="FIR On/Off"
             type="button"
           >
             <span
-              className={`absolute top-[0.07rem] left-[0.05rem] w-5 h-5 rounded-full transition-transform ${
-                fir.enabled ? "translate-x-6 bg-white" : "translate-x-0 bg-white/80"
-              }`}
+              className={`absolute top-[0.07rem] left-[0.05rem] w-5 h-5 rounded-full transition-transform ${speakerFir.enabled ? "translate-x-6 bg-white" : "translate-x-0 bg-white/80"
+                }`}
             />
           </button>
         </div>
 
         <div className="p-5 space-y-5">
-          <div className={!fir.enabled ? "opacity-45 grayscale pointer-events-none select-none" : ""}>
+          <div className={!speakerFir.enabled ? "opacity-45 grayscale pointer-events-none select-none" : ""}>
             <div className="bg-black/10 border border-smx-line rounded-2xl p-5 min-h-[220px] flex flex-col justify-between">
               <div className="space-y-2">
-                {fir.loaded ? (
+                {speakerFir.loaded ? (
                   <>
                     <div className="text-smx-text font-semibold text-base">
-                      {fir.fileName || "FIR Loaded"}
+                      {speakerFir.fileName || "FIR Loaded"}
                     </div>
                     <div className="text-sm md:text-xs text-smx-muted">
-                      Taps: <span className="text-smx-text font-semibold">{fir.taps ?? 0}</span>
+                      Taps: <span className="text-smx-text font-semibold">{speakerFir.taps ?? 0}</span>
                     </div>
                   </>
                 ) : (
@@ -161,37 +159,30 @@ export default function SpeakerPresetFIRPage() {
               </div>
 
               <div className="flex justify-end gap-3">
-              <div className="flex justify-end gap-3">
-  <button
-    type="button"
-    onClick={clearFir}
-    disabled={!fir.loaded}
-    className={`px-5 h-10 rounded-xl text-sm tracking-[0.15em] uppercase transition ${
-      fir.loaded
-        ? "bg-white/20 text-white hover:bg-white/25"
-        : "bg-white/10 text-white/40 cursor-not-allowed"
-    }`}
-  >
-    Clear
-  </button>
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={clearFir}
+                    disabled={!speakerFir.loaded}
+                    className={`px-5 flex-1 py-3 text-sm font-semibold rounded-2xl transition ${speakerFir.loaded
+                        ? "bg-white/20 text-white hover:bg-white/25"
+                        : "bg-white/10 text-white/40 cursor-not-allowed"
+                      }`}
+                  >
+                    Clear
+                  </button>
 
-  <button
-    type="button"
-    onClick={() => setImportOpen(true)}
-    className="px-5 h-10 rounded-xl bg-smx-red text-white text-sm tracking-[0.15em] uppercase hover:bg-red-500 transition"
-  >
-    Import
-  </button>
-</div>
+                  <button
+                    type="button"
+                    onClick={() => setImportOpen(true)}
+                    className="px-5 flex-1 py-3 text-sm font-semibold rounded-2xl transition border bg-smx-red border-smx-red/40 text-smx-text"
+                  >
+                    Import
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-
-          {!fir.enabled && (
-            <div className="text-sm md:text-xs text-smx-muted">
-              FIR está desativado (OFF). Ative o switch para editar.
-            </div>
-          )}
         </div>
       </section>
 

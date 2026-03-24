@@ -89,7 +89,7 @@ export default function FIRImportModal({
               setFile(null);
               onClose();
             }}
-            className="flex-1 h-11 rounded-xl border border-white/70 text-white tracking-[0.12em] uppercase text-sm hover:bg-white/5 transition"
+            className="px-5 flex-1 py-3 text-sm font-semibold rounded-2xl transition border text-smx-text hover:bg-white/5 transition"
           >
             Cancel
           </button>
@@ -98,13 +98,13 @@ export default function FIRImportModal({
             type="button"
             onClick={handleImport}
             disabled={!canImport}
-            className={`flex-1 h-11 rounded-xl tracking-[0.12em] uppercase text-sm transition ${
+            className={`px-5 flex-1 py-3 text-sm font-semibold rounded-2xl transition border text-smx-text ${
               canImport
-                ? "bg-smx-red text-white hover:bg-red-500"
-                : "bg-white/20 text-white/40 cursor-not-allowed"
+                ? "bg-smx-red border-smx-red/40 text-white hover:bg-red-500"
+                : "bg-white/20 border-white/20 text-white/40 cursor-not-allowed"
             }`}
           >
-            {sending ? "Importing..." : "Import"}
+            {sending ? "Importing..." : (canImport ? "Import ✔" : "Import")}
           </button>
         </div>
       </div>

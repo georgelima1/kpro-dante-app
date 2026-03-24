@@ -6,728 +6,801 @@ import Tooltip from "./Tooltip";
 import React from "react";
 
 type NavItem = {
-    key: string;
-    label: string;
-    icon: string;
-    href: (ctx: { deviceId?: string; ch?: string }) => string;
-    disabled?: boolean;
-    children?: NavItem[];
+  key: string;
+  label: string;
+  icon: string;
+  href: (ctx: { deviceId?: string; ch?: string }) => string;
+  disabled?: boolean;
+  children?: NavItem[];
 };
 
 function HamburgerIcon() {
-    return (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 7h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <path d="M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-    );
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 17h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
 }
 function CloseIcon() {
-    return (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <path d="M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-    );
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M18 6l-12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 const nav: NavItem[] = [
-    {
-        key: "devices",
-        label: "Devices",
-        icon: "dns",
-        href: () => "/devices"
-    },
-    {
-        key: "dashboard",
-        label: "Dashboard",
-        icon: "dashboard",
+  {
+    key: "devices",
+    label: "Devices",
+    icon: "dns",
+    href: () => "/devices"
+  },
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    icon: "dashboard",
+    href: ({ deviceId, ch }) =>
+      deviceId ? `/devices/${deviceId}${ch ? `?ch=${ch}` : ""}` : "/devices"
+  },
+  {
+    key: "input",
+    label: "Input",
+    icon: "input",
+    href: ({ deviceId }) =>
+      deviceId ? `/devices/${deviceId}/input` : "/devices"
+  },
+  {
+    key: "output",
+    label: "Output",
+    icon: "output",
+    href: ({ deviceId, ch }) =>
+      deviceId ? `/devices/${deviceId}/routing${ch ? `?ch=${ch}` : ""}` : "/devices",
+    children: [
+      {
+        key: "routing",
+        label: "Routing",
+        icon: "route",
         href: ({ deviceId, ch }) =>
-            deviceId ? `/devices/${deviceId}${ch ? `?ch=${ch}` : ""}` : "/devices"
-    },
-    {
-        key: "input",
-        label: "Input",
-        icon: "input",
-        href: ({ deviceId }) =>
-            deviceId ? `/devices/${deviceId}/input` : "/devices"
-    },
-    {
-        key: "output",
-        label: "Output",
-        icon: "output",
+          deviceId ? `/devices/${deviceId}/routing${ch ? `?ch=${ch}` : ""}` : "/devices"
+      },
+      {
+        key: "delay",
+        label: "Delay",
+        icon: "timer",
         href: ({ deviceId, ch }) =>
-            deviceId ? `/devices/${deviceId}/routing${ch ? `?ch=${ch}` : ""}` : "/devices",
+          deviceId ? `/devices/${deviceId}/delay${ch ? `?ch=${ch}` : ""}` : "/devices"
+      },
+      {
+        key: "filters",
+        label: "Filters",
+        icon: "equalizer",
+        href: ({ deviceId, ch }) =>
+          deviceId ? `/devices/${deviceId}/filters${ch ? `?ch=${ch}` : ""}` : "/devices"
+      },
+      {
+        key: "speaker",
+        label: "Speaker Preset",
+        icon: "speaker",
+        href: ({ deviceId, ch }) =>
+          deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices",
         children: [
-            {
-                key: "routing",
-                label: "Routing",
-                icon: "route",
-                href: ({ deviceId, ch }) =>
-                    deviceId ? `/devices/${deviceId}/routing${ch ? `?ch=${ch}` : ""}` : "/devices"
-            },
-            {
-                key: "delay",
-                label: "Delay",
-                icon: "timer",
-                href: ({ deviceId, ch }) =>
-                    deviceId ? `/devices/${deviceId}/delay${ch ? `?ch=${ch}` : ""}` : "/devices"
-            },
-            {
-                key: "filters",
-                label: "Equalizer",
-                icon: "equalizer",
-                href: ({ deviceId, ch }) =>
-                    deviceId ? `/devices/${deviceId}/filters${ch ? `?ch=${ch}` : ""}` : "/devices"
-            },
-            {
-                key: "speaker",
-                label: "Speaker Preset",
-                icon: "speaker",
-                href: ({ deviceId, ch }) =>
-                    deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices",
-                children: [
-                    {
-                        key: "speaker-crossover-gain",
-                        label: "Crossover & Gain",
-                        icon: "tune",
-                        href: ({ deviceId, ch }) =>
-                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
-                    },
-                    {
-                        key: "speaker-eq",
-                        label: "Speaker Eq",
-                        icon: "equalizer",
-                        href: ({ deviceId, ch }) =>
-                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
-                    },
-                    {
-                        key: "speaker-fir",
-                        label: "FIR",
-                        icon: "graphic_eq",
-                        href: ({ deviceId, ch }) =>
-                            deviceId ? `/devices/${deviceId}/speaker/fir${ch ? `?ch=${ch}` : ""}` : "/devices"
-                    },
-                    {
-                        key: "speaker-driver-alignment",
-                        label: "Driver Alignment",
-                        icon: "align_horizontal_left",
-                        href: ({ deviceId, ch }) =>
-                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
-                    },
-                    {
-                        key: "speaker-polarity",
-                        label: "Polarity",
-                        icon: "contrast",
-                        href: ({ deviceId, ch }) =>
-                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
-                    },
-                    {
-                        key: "speaker-limiter",
-                        label: "Limiter",
-                        icon: "speed",
-                        href: ({ deviceId, ch }) =>
-                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
-                    },
-                    {
-                        key: "speaker-output-mode",
-                        label: "Output Mode",
-                        icon: "speaker_notes",
-                        href: ({ deviceId, ch }) =>
-                            deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
-                    }
-                ]
-            }
+          {
+            key: "speaker-filters",
+            label: "Filters",
+            icon: "equalizer",
+            href: ({ deviceId, ch }) =>
+              deviceId ? `/devices/${deviceId}/speaker/filters${ch ? `?ch=${ch}` : ""}` : "/devices"
+          },
+          {
+            key: "speaker-fir",
+            label: "FIR",
+            icon: "graphic_eq",
+            href: ({ deviceId, ch }) =>
+              deviceId ? `/devices/${deviceId}/speaker/fir${ch ? `?ch=${ch}` : ""}` : "/devices"
+          },
+          {
+            key: "speaker-driver-alignment",
+            label: "Driver Alignment",
+            icon: "align_horizontal_left",
+            href: ({ deviceId, ch }) =>
+              deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+          },
+          {
+            key: "speaker-polarity",
+            label: "Polarity",
+            icon: "contrast",
+            href: ({ deviceId, ch }) =>
+              deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+          },
+          {
+            key: "speaker-limiter",
+            label: "Limiter",
+            icon: "speed",
+            href: ({ deviceId, ch }) =>
+              deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+          },
+          {
+            key: "speaker-output-mode",
+            label: "Output Mode",
+            icon: "speaker_notes",
+            href: ({ deviceId, ch }) =>
+              deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+          }
         ]
-    },
-    {
-        key: "settings",
-        label: "Settings",
-        icon: "settings",
-        href: ({ deviceId, ch }) =>
-            deviceId ? `/devices/${deviceId}${ch ? `?ch=${ch}` : ""}` : "/devices",
-        disabled: true
-    }
+      }
+    ]
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    icon: "settings",
+    href: ({ deviceId, ch }) =>
+      deviceId ? `/devices/${deviceId}${ch ? `?ch=${ch}` : ""}` : "/devices",
+    disabled: true
+  }
 ];
 
 function tempTone(t: number): "ok" | "warn" | "alarm" | "neutral" {
-    // thresholds V0 (ajuste depois)
-    if (t >= 85) return "alarm";
-    if (t >= 70) return "warn";
-    return "ok";
+  // thresholds V0 (ajuste depois)
+  if (t >= 85) return "alarm";
+  if (t >= 70) return "warn";
+  return "ok";
 }
 
 function tempClass(t: number) {
-    if (t >= 85) return "text-smx-red font-semibold";
-    if (t >= 70) return "text-yellow-400 font-semibold";
-    return "text-smx-text";
+  if (t >= 85) return "text-smx-red font-semibold";
+  if (t >= 70) return "text-yellow-400 font-semibold";
+  return "text-smx-text";
 }
 
 function Dot() {
-    return <span className="opacity-40">•</span>;
+  return <span className="opacity-40">•</span>;
 }
 
 export default function Shell({ children }: PropsWithChildren) {
-    const { pathname, search } = useLocation();
-    const [drawerOpen, setDrawerOpen] = useState(false);
+  const { pathname, search } = useLocation();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-    const [collapsed, setCollapsed] = useState<boolean>(() => {
-        try {
-            return localStorage.getItem("smx.sidebar.collapsed") === "1";
-        } catch {
-            return false;
-        }
-    });
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("smx.sidebar.collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
 
-    useEffect(() => {
-        try {
-            localStorage.setItem("smx.sidebar.collapsed", collapsed ? "1" : "0");
-        } catch { }
-    }, [collapsed]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("smx.sidebar.collapsed", collapsed ? "1" : "0");
+    } catch { }
+  }, [collapsed]);
 
-    // deviceId da rota
-    const deviceId = useMemo(() => {
-        const m = matchPath({ path: "/devices/:id/*" }, pathname);
-        return (m?.params as any)?.id as string | undefined;
-    }, [pathname]);
+  // deviceId da rota
+  const deviceId = useMemo(() => {
+    const m = matchPath({ path: "/devices/:id/*" }, pathname);
+    return (m?.params as any)?.id as string | undefined;
+  }, [pathname]);
 
-    const isDeviceRoot = useMemo(() => {
-        if (!deviceId) return false;
-        return pathname === `/devices/${deviceId}`;
-    }, [pathname, deviceId]);
+  const isDeviceRoot = useMemo(() => {
+    if (!deviceId) return false;
+    return pathname === `/devices/${deviceId}`;
+  }, [pathname, deviceId]);
 
-    const pageLabel = useMemo(() => {
-        // label da tela atual (só para /devices/:id/*)
-        if (!deviceId) return "";
-        if (isDeviceRoot) return "Dashboard";
+  const pageLabel = useMemo(() => {
+    // label da tela atual (só para /devices/:id/*)
+    if (!deviceId) return "";
+    if (isDeviceRoot) return "Dashboard";
 
-        if (pathname.endsWith("/input")) return "Input";
-        if (pathname.endsWith("/routing")) return "Routing";
-        if (pathname.endsWith("/delay")) return "Delay";
-        if (pathname.endsWith("filters")) return "Filters";
-        if (pathname.endsWith("/speaker/fir")) return "FIR";
-        if (pathname.endsWith("/speaker")) return "Speaker Preset";
+    if (pathname.endsWith("/input")) return "Input";
+    if (pathname.endsWith("/routing")) return "Routing";
+    if (pathname.endsWith("/delay")) return "Delay";
+    if (pathname.endsWith("filters")) return "Filters";
+    if (pathname.endsWith("/speaker/fir")) return "FIR";
+    if (pathname.endsWith("/speaker")) return "Speaker Preset";
 
-        return ""; // fallback
-    }, [pathname, deviceId, isDeviceRoot]);
+    return ""; // fallback
+  }, [pathname, deviceId, isDeviceRoot]);
 
-    type DeviceStatus = {
-        deviceId: string;
-        fw: string;
-        channelsCount?: number,
-        temps: { heatsink: number; board: number };
-        rails: { vbat: number; vbus: number };
-        net: { wifi: string; lan: string };
-        dsp: {
-            sampleRate: number,
-            delayMaxMs: number
-        };
-        powerOn: boolean;
-        protections?: { protect: boolean; reason?: string };
+  type DeviceStatus = {
+    deviceId: string;
+    fw: string;
+    channelsCount?: number,
+    temps: { heatsink: number; board: number };
+    rails: { vbat: number; vbus: number };
+    net: { wifi: string; lan: string };
+    dsp: {
+      sampleRate: number,
+      delayMaxMs: number
     };
+    powerOn: boolean;
+    protections?: { protect: boolean; reason?: string };
+  };
 
-    const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
-
-
-    // ch atual vindo do querystring
-    const ch = useMemo(() => {
-        const sp = new URLSearchParams(search);
-        return sp.get("ch") ?? "1";
-    }, [search]);
-
-    useEffect(() => setDrawerOpen(false), [pathname]);
-    useEffect(() => {
-        if (!drawerOpen) return;
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        return () => {
-            document.body.style.overflow = prev;
-        };
-    }, [drawerOpen]);
-
-    useEffect(() => {
-        setOutputFlyoutOpen(false);
-    }, [pathname]);
-
-    useEffect(() => {
-        let alive = true;
-        if (!deviceId) {
-            setDeviceStatus(null);
-            return;
-        }
-
-        async function load() {
-            try {
-                const r = await fetch(`/api/v1/devices/${deviceId}/status`);
-                const j = await r.json();
-                if (alive) setDeviceStatus(j);
-            } catch {
-                if (alive) setDeviceStatus(null);
-            }
-        }
-
-        load();
-
-    }, [deviceId]);
+  const [deviceStatus, setDeviceStatus] = useState<DeviceStatus | null>(null);
 
 
-    // controla expansão do grupo Output
-    const [openOutput, setOpenOutput] = useState(true);
+  // ch atual vindo do querystring
+  const ch = useMemo(() => {
+    const sp = new URLSearchParams(search);
+    return sp.get("ch") ?? "1";
+  }, [search]);
 
-    const [openSpeaker, setOpenSpeaker] = useState(true);
+  useEffect(() => setDrawerOpen(false), [pathname]);
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [drawerOpen]);
 
-    const [outputFlyoutOpen, setOutputFlyoutOpen] = useState(false);
+  useEffect(() => {
+    setOutputFlyoutOpen(false);
+    setFlyoutSpeakerOpen(false);
+  }, [pathname]);
 
-    const sidebarWidth = collapsed ? 100 : 288;
-
-    function isActivePath(pathname: string, targetPath: string) {
-        // ignora querystring
-        const base = targetPath.split("?")[0];
-
-        // match exato
-        if (pathname === base) return true;
-
-        // match por "segmento" (evita /devices bater em /devicesX)
-        return pathname.startsWith(base + "/");
+  useEffect(() => {
+    let alive = true;
+    if (!deviceId) {
+      setDeviceStatus(null);
+      return;
     }
 
-    function NavLinkItem({
-        item,
-        compact,
-        level = 0
-    }: {
-        item: NavItem;
-        compact: boolean;
-        level?: number;
-    }) {
-        const href = item.href({ deviceId, ch });
-        const basePath = href.split("?")[0];
-        const isGroup = !!item.children?.length;
-        const isOutputGroup = item.key === "output";
-
-        // ✅ Active correto (sem deixar tudo vermelho)
-        const active = useMemo(() => {
-            if (item.disabled) return false;
-
-            // 1) Devices: SOMENTE /devices (exato)
-            if (item.key === "devices") {
-                return pathname === "/devices";
-            }
-
-            // 2) Dashboard: SOMENTE /devices/:id (index)
-            if (item.key === "dashboard") {
-                return !!matchPath({ path: "/devices/:id", end: true }, pathname);
-            }
-
-            // 3) Output (grupo): ativo em qualquer subrota de output
-            if (item.key === "output") {
-                return (
-                    pathname.endsWith("/routing") ||
-                    pathname.endsWith("/delay") ||
-                    pathname.endsWith("/filters") ||
-                    pathname.includes("/speaker")
-                );
-            }
-
-            // 4) Subitens do Output (routing/delay/filters/speaker): match exato
-            if (["routing", "delay", "filters"].includes(item.key)) {
-                return !!matchPath({ path: `/devices/:id/${item.key}`, end: true }, pathname);
-            }
-
-            if (item.key === "speaker") {
-                return pathname.startsWith(`/devices/${deviceId}/speaker`);
-            }
-
-            if (item.key === "speaker-crossover-gain") {
-                return false;
-              }
-              
-              if (item.key === "speaker-eq") {
-                return false;
-              }
-              
-              if (item.key === "speaker-fir") {
-                return pathname === `/devices/${deviceId}/speaker/fir`;
-              }
-              
-              if (item.key === "speaker-driver-alignment") {
-                return false;
-              }
-              
-              if (item.key === "speaker-polarity") {
-                return false;
-              }
-              
-              if (item.key === "speaker-limiter") {
-                return false;
-              }
-              
-              if (item.key === "speaker-output-mode") {
-                return false;
-              }
-
-            // 5) fallback: match exato por basePath
-            return pathname === basePath;
-        }, [item.key, item.disabled, pathname, basePath]);
-
-        const base =
-            "group flex items-center gap-3 rounded-xl px-3 py-3 border transition select-none";
-        const cls = item.disabled
-            ? `${base} opacity-50 cursor-not-allowed border-transparent bg-smx-panel2`
-            : active
-                ? `${base} bg-smx-red/15 border-smx-red/40`
-                : `${base} bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20`;
-
-        const indent = level === 0 ? "" : "ml-3";
-
-        const iconNode = (
-            <div
-                className={`grid place-items-center w-12 h-12 rounded-xl border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
-                    } transition`}
-            >
-                <Icon
-                    name={item.icon}
-                    className={active ? "text-smx-red" : "text-smx-muted group-hover:text-smx-text"}
-                    filled={active}
-                />
-            </div>
-        );
-
-        const content = (
-            <>
-                {iconNode}
-                {!compact && (
-                    <div className="flex-1">
-                        <div className="font-medium">{item.label}</div>
-                    </div>
-                )}
-
-                {!compact && isGroup && (
-                    <button
-                        type="button"
-                        onClick={(e) => {
-                            e.preventDefault();
-
-                            if (item.key === "output") {
-                                setOpenOutput((v) => !v);
-                            } else if (item.key === "speaker") {
-                                setOpenSpeaker((v) => !v);
-                            }
-                        }}
-                        className="p-1 rounded-lg hover:bg-white/5"
-                        aria-label="Expandir/Recolher"
-                        title="Expandir/Recolher"
-                    >
-                        <Icon
-                            name={
-                                item.key === "output"
-                                    ? openOutput
-                                        ? "expand_less"
-                                        : "expand_more"
-                                    : openSpeaker
-                                        ? "expand_less"
-                                        : "expand_more"
-                            }
-                            className="text-smx-muted"
-                        />
-                    </button>
-                )}
-            </>
-        );
-
-        const node = item.disabled ? (
-            <div className={`${cls} ${indent}`}>{content}</div>
-        ) : (isGroup && compact && isOutputGroup) ? (
-            // ✅ Sidebar recolhida: Output vira botão que abre flyout
-            <button
-                type="button"
-                onClick={(e) => {
-                    e.preventDefault();
-                    setOutputFlyoutOpen((v) => !v);
-                }}
-                className={`${cls} ${indent} w-full text-left`}
-            >
-                {content}
-            </button>
-        ) : (
-            <Link to={href} className={`${cls} ${indent}`}>
-                {content}
-            </Link>
-        );
-
-
-        return compact ? <Tooltip label={item.label}>{node}</Tooltip> : node;
+    async function load() {
+      try {
+        const r = await fetch(`/api/v1/devices/${deviceId}/status`);
+        const j = await r.json();
+        if (alive) setDeviceStatus(j);
+      } catch {
+        if (alive) setDeviceStatus(null);
+      }
     }
 
+    load();
 
-    function SidebarContent({ compact }: { compact: boolean }) {
+  }, [deviceId]);
+
+
+  // controla expansão do grupo Output
+  const [openOutput, setOpenOutput] = useState(true);
+  const [openSpeaker, setOpenSpeaker] = useState(true);
+  const [outputFlyoutOpen, setOutputFlyoutOpen] = useState(false);
+  const [flyoutSpeakerOpen, setFlyoutSpeakerOpen] = useState(false);
+
+  const sidebarWidth = collapsed ? 100 : 288;
+
+  function isActivePath(pathname: string, targetPath: string) {
+    // ignora querystring
+    const base = targetPath.split("?")[0];
+
+    // match exato
+    if (pathname === base) return true;
+
+    // match por "segmento" (evita /devices bater em /devicesX)
+    return pathname.startsWith(base + "/");
+  }
+
+  function NavLinkItem({
+    item,
+    compact,
+    level = 0
+  }: {
+    item: NavItem;
+    compact: boolean;
+    level?: number;
+  }) {
+    const href = item.href({ deviceId, ch });
+    const basePath = href.split("?")[0];
+    const isGroup = !!item.children?.length;
+    const isOutputGroup = item.key === "output";
+
+    // ✅ Active correto (sem deixar tudo vermelho)
+    const active = useMemo(() => {
+      if (item.disabled) return false;
+
+      // 1) Devices: SOMENTE /devices (exato)
+      if (item.key === "devices") {
+        return pathname === "/devices";
+      }
+
+      // 2) Dashboard: SOMENTE /devices/:id (index)
+      if (item.key === "dashboard") {
+        return !!matchPath({ path: "/devices/:id", end: true }, pathname);
+      }
+
+      // 3) Output (grupo): ativo em qualquer subrota de output
+      if (item.key === "output") {
         return (
-            <aside className={`h-full bg-smx-panel border-r border-smx-line ${compact ? "p-3" : "p-6"}`}>
-                <div className={compact ? "mb-6 text-center" : "mb-8"}>
-                    {compact ? (
-                        <>
-                            <div className="text-sm md:text-[15px] font-semibold tracking-wide leading-none text-smx-red">
-                                Soundmax
-                            </div>
-                            <div className="text-sm md:text-[11px] text-smx-muted mt-1 tracking-wider">
-                                Control
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div className="text-2xl font-semibold tracking-wide">
-                                <span className="text-smx-red">Soundmax</span>{" "}
-                                <span className="text-smx-muted font-normal">Control</span>
-                            </div>
-                            <div className="text-sm md:text-xs text-smx-muted mt-1">
-                                LAN • Multi-device • ESP32
-                            </div>
-                        </>
-                    )}
-                </div>
-
-
-                <nav className="space-y-3">
-                    {nav.map((item) => (
-                        <div key={item.key}>
-                            <NavLinkItem item={item} compact={compact} level={0} />
-
-                            {/* subitens do Output */}
-                            {!compact && item.key === "output" && openOutput && item.children && (
-                                <div className="mt-2 space-y-2">
-                                    {item.children.map((c) => (
-                                        <div key={c.key}>
-                                            <NavLinkItem item={c} compact={compact} level={1} />
-
-                                            {!compact && c.key === "speaker" && openSpeaker && c.children && (
-                                                <div className="mt-2 space-y-2">
-                                                    {c.children.map((sub) => (
-                                                        <NavLinkItem key={sub.key} item={sub} compact={compact} level={2} />
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </nav>
-
-                {compact && outputFlyoutOpen && (
-                    <div className="fixed inset-0 z-50" onClick={() => setOutputFlyoutOpen(false)}>
-                        {/* painel flutuante */}
-                        <div
-                            className="absolute left-[92px] top-[112px] w-[260px] rounded-2xl border border-smx-line bg-smx-panel shadow-2xl p-3"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="text-sm md:text-xs text-smx-muted px-2 pb-2">Output</div>
-
-                            <div className="space-y-2">
-                                {nav
-                                    .find((x) => x.key === "output")
-                                    ?.children?.map((c) => {
-                                        const href = c.href({ deviceId, ch });
-                                        const active = !!matchPath({ path: href.split("?")[0], end: true }, pathname);
-
-                                        return (
-                                            <Link
-                                                key={c.key}
-                                                to={href}
-                                                className={`flex items-center gap-3 rounded-xl px-3 py-3 border transition ${active
-                                                    ? "bg-smx-red/15 border-smx-red/40"
-                                                    : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
-                                                    }`}
-                                            >
-                                                <div
-                                                    className={`grid place-items-center w-10 h-10 rounded-xl border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
-                                                        }`}
-                                                >
-                                                    <Icon
-                                                        name={c.icon}
-                                                        className={active ? "text-smx-red" : "text-smx-muted"}
-                                                        filled={active}
-                                                    />
-                                                </div>
-                                                <div className="font-medium">{c.label}</div>
-                                            </Link>
-                                        );
-                                    })}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-
-                {!compact && (
-                    <div className="mt-10 text-sm md:text-xs text-smx-muted">
-                        V0 preparado p/ login, histórico, permissões e OTA (V1+).
-                    </div>
-                )}
-            </aside>
+          pathname.endsWith("/routing") ||
+          pathname.endsWith("/delay") ||
+          pathname.endsWith("/filters") ||
+          pathname.includes("/speaker")
         );
-    }
+      }
 
-    return (
-        <div className="h-screen bg-smx-bg flex flex-col">
-            {/* TOP BAR (fixa) */}
-            <div className="shrink-0 sticky top-0 z-40 bg-smx-panel/95 backdrop-blur border-b border-smx-line">
-                <div className="flex items-center justify-between px-4 py-3">
-                    <button
-                        onClick={() => {
-                            if (window.matchMedia("(max-width: 767px)").matches) setDrawerOpen(true);
-                            else setCollapsed((v) => !v);
-                        }}
-                        className="p-2 rounded-xl border border-smx-line bg-smx-panel2 hover:border-smx-red/30 transition"
-                        aria-label="Menu"
-                    >
-                        <HamburgerIcon />
-                    </button>
+      // 4) Subitens do Output (routing/delay/filters/speaker): match exato
+      if (["routing", "delay", "filters"].includes(item.key)) {
+        return !!matchPath({ path: `/devices/:id/${item.key}`, end: true }, pathname);
+      }
 
-                    <div className="text-sm font-semibold text-center">
-                        <span className="text-smx-red">Soundmax</span>{" "}
-                        <span className="text-smx-muted">Control</span>
-                        {deviceId && (
-                            <div className="mt-1">
-                                {deviceStatus ? (
-                                    <div className="text-sm md:text-[11px] text-smx-muted font-normal flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-                                        {/* Linha principal */}
-                                        <span className="text-smx-text font-semibold">{deviceStatus.deviceId}</span>
+      if (item.key === "speaker") {
+        return pathname.startsWith(`/devices/${deviceId}/speaker`);
+      }
 
-                                        {/* No dashboard: mostra X CH. Em telas por canal: mostra CH N + Page */}
-                                        {isDeviceRoot ? (
-                                            <>
-                                                <Dot />
-                                                <span className="text-smx-text font-medium">
-                                                    {deviceStatus.channelsCount ? `${deviceStatus.channelsCount} CH` : ""}
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Dot />
-                                                <span className="text-smx-text font-medium">CH {ch}</span>
-                                                {pageLabel && (
-                                                    <>
-                                                        <Dot />
-                                                        <span className="text-smx-text font-medium">{pageLabel}</span>
-                                                    </>
-                                                )}
-                                            </>
-                                        )}
+      if (item.key === "speaker-crossover-gain") {
+        return false;
+      }
 
-                                        <Dot />
-                                        <span>
-                                            FW <span className="text-smx-text">{deviceStatus.fw}</span>
-                                        </span>
+      if (item.key === "speaker-filters") {
+        return pathname === `/devices/${deviceId}/speaker/filters`;
+      }
 
-                                        <Dot />
-                                        <span>
-                                            LAN <span className="text-smx-text">{deviceStatus.net.lan || "—"}</span>
-                                        </span>
+      if (item.key === "speaker-fir") {
+        return pathname === `/devices/${deviceId}/speaker/fir`;
+      }
 
-                                        <Dot />
-                                        <span>
-                                            WiFi <span className="text-smx-text">{deviceStatus.net.wifi || "—"}</span>
-                                        </span>
+      if (item.key === "speaker-driver-alignment") {
+        return false;
+      }
 
-                                        <Dot />
-                                        <span>
-                                            HS{" "}
-                                            <span className={tempClass(deviceStatus.temps.heatsink)}>
-                                                {deviceStatus.temps.heatsink.toFixed(1)}°C
-                                            </span>
-                                        </span>
+      if (item.key === "speaker-polarity") {
+        return false;
+      }
 
-                                        <Dot />
-                                        <span>
-                                            BD{" "}
-                                            <span className={tempClass(deviceStatus.temps.board)}>
-                                                {deviceStatus.temps.board.toFixed(1)}°C
-                                            </span>
-                                        </span>
+      if (item.key === "speaker-limiter") {
+        return false;
+      }
 
-                                        <Dot />
-                                        <span className={deviceStatus.powerOn ? "text-green-500" : "text-smx-red"}>
-                                            {deviceStatus.powerOn ? "ON" : "OFF"}
-                                        </span>
+      if (item.key === "speaker-output-mode") {
+        return false;
+      }
 
-                                        {deviceStatus.protections?.protect && (
-                                            <>
-                                                <Dot />
-                                                <span className="text-smx-red font-semibold">
-                                                    PROTECT {deviceStatus.protections.reason || ""}
-                                                </span>
-                                            </>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="text-sm md:text-[11px] text-smx-muted text-center">Carregando status…</div>
-                                )}
-                            </div>
-                        )}
-                    </div>
+      // 5) fallback: match exato por basePath
+      return pathname === basePath;
+    }, [item.key, item.disabled, pathname, basePath]);
 
-                    <button
-                        onClick={() => setDrawerOpen(false)}
-                        className={`p-2 rounded-xl border bg-smx-panel2 transition ${drawerOpen
-                            ? "border-smx-red/40 hover:border-smx-red/60"
-                            : "border-smx-line opacity-0 pointer-events-none"
-                            }`}
-                        aria-label="Fechar menu"
-                    >
-                        <CloseIcon />
-                    </button>
-                </div>
-            </div>
+    const base =
+      level === 2
+        ? "group flex items-center gap-2 rounded-xl px-2.5 py-2 border transition select-none"
+        : "group flex items-center gap-3 rounded-xl px-3 py-3 border transition select-none";
+    const cls = item.disabled
+      ? `${base} opacity-50 cursor-not-allowed border-transparent bg-smx-panel2`
+      : active
+        ? `${base} bg-smx-red/15 border-smx-red/40`
+        : `${base} bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20`;
 
-            {/* Desktop */}
-            <div className="flex-1 min-h-0">
-                <div className="hidden md:grid md:grid-cols-[auto_1fr] min-h-[calc(100vh-56px)]">
-                    <div style={{ width: sidebarWidth, transition: "width 220ms ease" }} className="h-full">
-                        <SidebarContent compact={collapsed} />
-                    </div>
-                    <main className="h-full min-h-0 overflow-y-auto">
-                        <div className="p-4 md:p-8">{children}</div>
-                    </main>
-                </div>
+    const indent = level === 0 ? "" : level === 1 ? "ml-3" : "ml-6";
 
-                {/* Mobile */}
-                <div className="md:hidden h-full">
-                    <main className="h-full min-h-0 overflow-y-auto">
-                        <div className="p-4">{children}</div>
-                    </main>
-                </div>
-
-                {/* Drawer Mobile */}
-                <div className={`md:hidden fixed inset-0 z-50 ${drawerOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
-                    <div
-                        className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ${drawerOpen ? "opacity-100" : "opacity-0"
-                            }`}
-                        onClick={() => setDrawerOpen(false)}
-                    />
-                    <div
-                        className={`absolute left-0 top-0 h-full w-[85%] max-w-[340px] shadow-2xl transition-transform duration-200 ease-out ${drawerOpen ? "translate-x-0" : "-translate-x-full"
-                            }`}
-                    >
-                        <div className="flex items-center justify-between bg-smx-panel border-b border-smx-line p-4">
-                            <div className="text-base font-semibold">
-                                <span className="text-smx-red">Soundmax</span>{" "}
-                                <span className="text-smx-muted">Control</span>
-                            </div>
-                            <button
-                                onClick={() => setDrawerOpen(false)}
-                                className="p-2 rounded-xl border border-smx-line bg-smx-panel2 hover:border-smx-red/30 transition"
-                                aria-label="Fechar menu"
-                            >
-                                <CloseIcon />
-                            </button>
-                        </div>
-
-                        <SidebarContent compact={false} />
-                    </div>
-                </div>
-            </div>
-        </div >
+    const iconNode = (
+      <div
+        className={`grid place-items-center ${level === 2 ? "w-9 h-9 rounded-lg" : "w-12 h-12 rounded-xl"
+          } border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
+          } transition`}
+      >
+        <Icon
+          name={item.icon}
+          className={`${active ? "text-smx-red" : "text-smx-muted group-hover:text-smx-text"
+            } ${level === 2 ? "scale-90" : ""}`}
+          filled={active}
+        />
+      </div>
     );
+
+    const content = (
+      <>
+        {iconNode}
+        {!compact && (
+          <div className="flex-1 min-w-0">
+            <div className={level === 2 ? "text-sm font-light" : "font-light"}>
+              {item.label}
+            </div>
+          </div>
+        )}
+
+        {!compact && isGroup && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+
+              if (item.key === "output") {
+                setOpenOutput((v) => !v);
+              } else if (item.key === "speaker") {
+                setOpenSpeaker((v) => !v);
+              }
+            }}
+            className="p-1 rounded-lg hover:bg-white/5"
+            aria-label="Expandir/Recolher"
+            title="Expandir/Recolher"
+          >
+            <Icon
+              name={
+                item.key === "output"
+                  ? openOutput
+                    ? "expand_less"
+                    : "expand_more"
+                  : openSpeaker
+                    ? "expand_less"
+                    : "expand_more"
+              }
+              className="text-smx-muted"
+            />
+          </button>
+        )}
+      </>
+    );
+
+    const node = item.disabled ? (
+      <div className={`${cls} ${indent}`}>{content}</div>
+    ) : (isGroup && compact && isOutputGroup) ? (
+      // ✅ Sidebar recolhida: Output vira botão que abre flyout
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          setOutputFlyoutOpen((v) => !v);
+        }}
+        className={`${cls} ${indent} w-full text-left`}
+      >
+        {content}
+      </button>
+    ) : (
+      <Link to={href} className={`${cls} ${indent}`}>
+        {content}
+      </Link>
+    );
+
+
+    return compact ? <Tooltip label={item.label}>{node}</Tooltip> : node;
+  }
+
+
+  function SidebarContent({ compact }: { compact: boolean }) {
+    return (
+      <aside className={`h-full bg-smx-panel border-r border-smx-line ${compact ? "p-3" : "p-6"}`}>
+        <div className={compact ? "mb-6 text-center" : "mb-8"}>
+          {compact ? (
+            <>
+              <div className="text-sm md:text-[15px] font-semibold tracking-wide leading-none text-smx-red">
+                Soundmax
+              </div>
+              <div className="text-sm md:text-[11px] text-smx-muted mt-1 tracking-wider">
+                Control
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-semibold tracking-wide">
+                <span className="text-smx-red">Soundmax</span>{" "}
+                <span className="text-smx-muted font-normal">Control</span>
+              </div>
+              <div className="text-sm md:text-xs text-smx-muted mt-1">
+                LAN • Multi-device • ESP32
+              </div>
+            </>
+          )}
+        </div>
+
+
+        <nav className="space-y-3">
+          {nav.map((item) => (
+            <div key={item.key}>
+              <NavLinkItem item={item} compact={compact} level={0} />
+
+              {/* subitens do Output */}
+              {!compact && item.key === "output" && openOutput && item.children && (
+                <div className="mt-2 space-y-2">
+                  {item.children.map((c) => (
+                    <div key={c.key}>
+                      <NavLinkItem item={c} compact={compact} level={1} />
+
+                      {!compact && c.key === "speaker" && openSpeaker && c.children && (
+                        <div className="mt-2 space-y-2">
+                          {c.children.map((sub) => (
+                            <NavLinkItem key={sub.key} item={sub} compact={compact} level={2} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
+
+        {compact && outputFlyoutOpen && (
+          <div className="fixed inset-0 z-50" onClick={() => setOutputFlyoutOpen(false)}>
+            {/* painel flutuante */}
+            <div
+              className="absolute left-[92px] top-[112px] w-[280px] max-h-[calc(100vh-140px)] rounded-2xl border border-smx-line bg-smx-panel shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 bg-smx-panel px-3 pt-3 pb-2 border-b border-smx-line">
+                <div className="text-sm md:text-xs text-smx-muted">Output</div>
+              </div>
+
+              <div className="p-3 overflow-y-auto max-h-[calc(100vh-190px)]">
+                {nav
+                  .find((x) => x.key === "output")
+                  ?.children?.map((c) => {
+                    const href = c.href({ deviceId, ch });
+                    const active =
+                      c.key === "speaker"
+                        ? pathname.startsWith(`/devices/${deviceId}/speaker`)
+                        : !!matchPath({ path: href.split("?")[0], end: true }, pathname);
+
+                    if (c.key === "speaker") {
+                      return (
+                        <div key={c.key}>
+                          <button
+                            type="button"
+                            onClick={() => setFlyoutSpeakerOpen((v) => !v)}
+                            className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 border transition text-left ${active
+                                ? "bg-smx-red/15 border-smx-red/40"
+                                : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                              }`}
+                          >
+                            <div
+                              className={`grid place-items-center w-10 h-10 rounded-xl border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
+                                }`}
+                            >
+                              <Icon
+                                name={c.icon}
+                                className={active ? "text-smx-red" : "text-smx-muted"}
+                                filled={active}
+                              />
+                            </div>
+
+                            <div className="flex-1 font-light">{c.label}</div>
+
+                            <Icon
+                              name={flyoutSpeakerOpen ? "expand_less" : "expand_more"}
+                              className="text-smx-muted"
+                            />
+                          </button>
+
+                          {flyoutSpeakerOpen && c.children && (
+                            <div className="mt-2 ml-6 space-y-2">
+                              {c.children.map((sub) => {
+                                const subHref = sub.href({ deviceId, ch });
+                                const subActive =
+                                  sub.key === "speaker-fir"
+                                    ? pathname === `/devices/${deviceId}/speaker/fir`
+                                    : false;
+
+                                return (
+                                  <Link
+                                    key={sub.key}
+                                    to={subHref}
+                                    className={`flex items-center gap-2 rounded-xl px-2.5 py-2 border transition ${subActive
+                                        ? "bg-smx-red/15 border-smx-red/40"
+                                        : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                                      }`}
+                                  >
+                                    <div
+                                      className={`grid place-items-center w-8 h-8 rounded-lg border ${subActive ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
+                                        }`}
+                                    >
+                                      <Icon
+                                        name={sub.icon}
+                                        className={`${subActive ? "text-smx-red" : "text-smx-muted"} scale-90`}
+                                        filled={subActive}
+                                      />
+                                    </div>
+
+                                    <div className="text-sm font-light">{sub.label}</div>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <Link
+                        key={c.key}
+                        to={href}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-3 border transition ${active
+                            ? "bg-smx-red/15 border-smx-red/40"
+                            : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                          }`}
+                      >
+                        <div
+                          className={`grid place-items-center w-10 h-10 rounded-xl border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
+                            }`}
+                        >
+                          <Icon
+                            name={c.icon}
+                            className={active ? "text-smx-red" : "text-smx-muted"}
+                            filled={active}
+                          />
+                        </div>
+                        <div className="font-light">{c.label}</div>
+                      </Link>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {!compact && (
+          <div className="mt-10 text-sm md:text-xs text-smx-muted">
+            V0 preparado p/ login, histórico, permissões e OTA (V1+).
+          </div>
+        )}
+      </aside>
+    );
+  }
+
+  return (
+    <div className="h-screen bg-smx-bg flex flex-col">
+      {/* TOP BAR (fixa) */}
+      <div className="shrink-0 sticky top-0 z-40 bg-smx-panel/95 backdrop-blur border-b border-smx-line">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button
+            onClick={() => {
+              if (window.matchMedia("(max-width: 767px)").matches) setDrawerOpen(true);
+              else setCollapsed((v) => !v);
+            }}
+            className="p-2 rounded-xl border border-smx-line bg-smx-panel2 hover:border-smx-red/30 transition"
+            aria-label="Menu"
+          >
+            <HamburgerIcon />
+          </button>
+
+          <div className="text-sm font-semibold text-center">
+            <span className="text-smx-red">Soundmax</span>{" "}
+            <span className="text-smx-muted">Control</span>
+            {deviceId && (
+              <div className="mt-1">
+                {deviceStatus ? (
+                  <div className="text-sm md:text-[11px] text-smx-muted font-normal flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                    {/* Linha principal */}
+                    <span className="text-smx-text font-semibold">{deviceStatus.deviceId}</span>
+
+                    {/* No dashboard: mostra X CH. Em telas por canal: mostra CH N + Page */}
+                    {isDeviceRoot ? (
+                      <>
+                        <Dot />
+                        <span className="text-smx-text font-medium">
+                          {deviceStatus.channelsCount ? `${deviceStatus.channelsCount} CH` : ""}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Dot />
+                        <span className="text-smx-text font-medium">CH {ch}</span>
+                        {pageLabel && (
+                          <>
+                            <Dot />
+                            <span className="text-smx-text font-medium">{pageLabel}</span>
+                          </>
+                        )}
+                      </>
+                    )}
+
+                    <Dot />
+                    <span>
+                      FW <span className="text-smx-text">{deviceStatus.fw}</span>
+                    </span>
+
+                    <Dot />
+                    <span>
+                      LAN <span className="text-smx-text">{deviceStatus.net.lan || "—"}</span>
+                    </span>
+
+                    <Dot />
+                    <span>
+                      WiFi <span className="text-smx-text">{deviceStatus.net.wifi || "—"}</span>
+                    </span>
+
+                    <Dot />
+                    <span>
+                      HS{" "}
+                      <span className={tempClass(deviceStatus.temps.heatsink)}>
+                        {deviceStatus.temps.heatsink.toFixed(1)}°C
+                      </span>
+                    </span>
+
+                    <Dot />
+                    <span>
+                      BD{" "}
+                      <span className={tempClass(deviceStatus.temps.board)}>
+                        {deviceStatus.temps.board.toFixed(1)}°C
+                      </span>
+                    </span>
+
+                    <Dot />
+                    <span className={deviceStatus.powerOn ? "text-green-500" : "text-smx-red"}>
+                      {deviceStatus.powerOn ? "ON" : "OFF"}
+                    </span>
+
+                    {deviceStatus.protections?.protect && (
+                      <>
+                        <Dot />
+                        <span className="text-smx-red font-semibold">
+                          PROTECT {deviceStatus.protections.reason || ""}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm md:text-[11px] text-smx-muted text-center">Carregando status…</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setDrawerOpen(false)}
+            className={`p-2 rounded-xl border bg-smx-panel2 transition ${drawerOpen
+              ? "border-smx-red/40 hover:border-smx-red/60"
+              : "border-smx-line opacity-0 pointer-events-none"
+              }`}
+            aria-label="Fechar menu"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop */}
+      <div className="flex-1 min-h-0">
+        <div className="hidden md:grid md:grid-cols-[auto_1fr] min-h-[calc(100vh-56px)]">
+          <div style={{ width: sidebarWidth, transition: "width 220ms ease" }} className="h-full">
+            <SidebarContent compact={collapsed} />
+          </div>
+          <main className="h-full min-h-0 overflow-y-auto">
+            <div className="p-4 md:p-8">{children}</div>
+          </main>
+        </div>
+
+        {/* Mobile */}
+        <div className="md:hidden h-full">
+          <main className="h-full min-h-0 overflow-y-auto">
+            <div className="p-4">{children}</div>
+          </main>
+        </div>
+
+        {/* Drawer Mobile */}
+        <div className={`md:hidden fixed inset-0 z-50 ${drawerOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+          <div
+            className={`absolute inset-0 bg-black/60 transition-opacity duration-200 ${drawerOpen ? "opacity-100" : "opacity-0"
+              }`}
+            onClick={() => setDrawerOpen(false)}
+          />
+          <div
+            className={`absolute left-0 top-0 h-full w-[85%] max-w-[340px] shadow-2xl transition-transform duration-200 ease-out ${drawerOpen ? "translate-x-0" : "-translate-x-full"
+              }`}
+          >
+            <div className="flex items-center justify-between bg-smx-panel border-b border-smx-line p-4">
+              <div className="text-base font-semibold">
+                <span className="text-smx-red">Soundmax</span>{" "}
+                <span className="text-smx-muted">Control</span>
+              </div>
+              <button
+                onClick={() => setDrawerOpen(false)}
+                className="p-2 rounded-xl border border-smx-line bg-smx-panel2 hover:border-smx-red/30 transition"
+                aria-label="Fechar menu"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <SidebarContent compact={false} />
+          </div>
+        </div>
+      </div>
+    </div >
+  );
 }

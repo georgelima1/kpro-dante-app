@@ -55,7 +55,8 @@ type ChannelStatus = {
   meters: { rmsDb: number; peakDb: number };
   delay: { enabled: boolean; valueSamples: number };
   filters: ChannelFilter[];
-  fir: FirState;
+  speakerFilters: ChannelFilter[];
+  speakerFir: FirState;
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
 };
@@ -322,6 +323,10 @@ function makeDefaultFir(): FirState {
   };
 }
 
+function makeDefaultSpeakerFilters(): ChannelFilter[] {
+  return makeDefaultFilters();
+}
+
 function makeInputState(channelsCount: number): InputPageState {
   return {
     inputs: Array.from({ length: channelsCount }).map((_, i) => ({
@@ -395,7 +400,8 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
           enabled: true,
           valueSamples: 0
         },
-        fir: makeDefaultFir(),
+        speakerFilters: makeDefaultSpeakerFilters(),
+        speakerFir: makeDefaultFir(),
         flags: { clip: false, limit: false, protect: false, reason: "" },
         route: { from: "Input 1", to: `Out ${ch}` }
       };
@@ -761,6 +767,59 @@ app.post("/api/v1/devices/:id/input/:inputCh/output/:outputCh", (req, res) => {
   res.json({ cell });
 });
 
+// -------------- SPEAKER FILTERS --------------
+
+// -------------- SPEAKER FILTERS --------------
+
+app.get("/api/v1/devices/:id/ch/:ch/speaker/filters", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  res.json({
+    filters: channel.speakerFilters
+  });
+});
+
+app.post("/api/v1/devices/:id/ch/:ch/speaker/filters/:filterId", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const filterId = Number(req.params.filterId);
+
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  const filter = channel.speakerFilters.find((f) => f.id === filterId);
+  if (!filter) return res.status(404).json({ error: "filter not found" });
+
+  const body = req.body ?? {};
+
+  if (typeof body.enabled === "boolean") filter.enabled = body.enabled;
+
+  if (typeof body.type === "string") {
+    filter.type = body.type;
+
+    if (filter.type === "hpf" || filter.type === "lpf") {
+      if (!filter.slope) filter.slope = 12;
+      if (!filter.crossoverFamily) filter.crossoverFamily = "butterworth";
+    } else {
+      delete filter.slope;
+      delete filter.crossoverFamily;
+    }
+  }
+
+  if (typeof body.freqHz === "number") filter.freqHz = clampFreq(body.freqHz);
+  if (typeof body.q === "number") filter.q = clampQ(body.q);
+  if (typeof body.gainDb === "number") filter.gainDb = clampGain(body.gainDb);
+
+  res.json({ filter });
+});
+
 // -------------------- FIR --------------------
 
 app.get("/api/v1/devices/:id/ch/:ch/fir", (req, res) => {
@@ -772,7 +831,7 @@ app.get("/api/v1/devices/:id/ch/:ch/fir", (req, res) => {
   if (!channel) return res.status(404).json({ error: "channel not found" });
 
   res.json({
-    fir: channel.fir ?? makeDefaultFir()
+    speakerFir: channel.speakerFir ?? makeDefaultFir()
   });
 });
 
@@ -784,29 +843,29 @@ app.post("/api/v1/devices/:id/ch/:ch/fir", (req, res) => {
   const channel = d.channels.find((c) => c.ch === chNum);
   if (!channel) return res.status(404).json({ error: "channel not found" });
 
-  if (!channel.fir) {
-    channel.fir = makeDefaultFir();
+  if (!channel.speakerFir) {
+    channel.speakerFir = makeDefaultFir();
   }
 
   const body = req.body ?? {};
 
   if (typeof body.enabled === "boolean") {
-    channel.fir.enabled = body.enabled;
+    channel.speakerFir.enabled = body.enabled;
   }
 
   if (typeof body.loaded === "boolean") {
-    channel.fir.loaded = body.loaded;
+    channel.speakerFir.loaded = body.loaded;
   }
 
   if (typeof body.fileName === "string") {
-    channel.fir.fileName = body.fileName;
+    channel.speakerFir.fileName = body.fileName;
   }
 
   if (typeof body.taps === "number") {
-    channel.fir.taps = Math.max(0, Math.round(body.taps));
+    channel.speakerFir.taps = Math.max(0, Math.round(body.taps));
   }
 
-  res.json({ fir: channel.fir });
+  res.json({ speakerFir: channel.speakerFir });
 });
 
 app.post("/api/v1/devices/:id/ch/:ch/fir/upload", upload.single("file"), (req, res) => {
@@ -836,11 +895,11 @@ app.post("/api/v1/devices/:id/ch/:ch/fir/upload", upload.single("file"), (req, r
     return res.status(400).json({ error: "maximum 512 coefficients" });
   }
 
-  channel.fir.loaded = true;
-  channel.fir.fileName = file.originalname;
-  channel.fir.taps = lines.length;
+  channel.speakerFir.loaded = true;
+  channel.speakerFir.fileName = file.originalname;
+  channel.speakerFir.taps = lines.length;
 
-  res.json({ fir: channel.fir });
+  res.json({ speakerFir: channel.speakerFir });
 });
 
 // -------------------- WS --------------------
