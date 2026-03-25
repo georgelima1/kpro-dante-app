@@ -48,15 +48,26 @@ type FirState = {
   taps?: number;
 };
 
+type SpeakerPresetState = {
+  loaded: boolean;
+  locked: boolean;
+  name?: string;
+  manufacturer?: string;
+};
+
 type ChannelStatus = {
   ch: number;
   name?: string;
   audio: { mute: boolean; gainDb: number; polarity: 1 | -1 };
   meters: { rmsDb: number; peakDb: number };
   delay: { enabled: boolean; valueSamples: number };
+
   filters: ChannelFilter[];
+
+  speakerPreset: SpeakerPresetState;
   speakerFilters: ChannelFilter[];
   speakerFir: FirState;
+
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
 };
@@ -323,6 +334,15 @@ function makeDefaultFir(): FirState {
   };
 }
 
+function makeDefaultSpeakerPreset(): SpeakerPresetState {
+  return {
+    loaded: false,
+    locked: false,
+    name: "",
+    manufacturer: ""
+  };
+}
+
 function makeDefaultSpeakerFilters(): ChannelFilter[] {
   return makeDefaultFilters();
 }
@@ -375,6 +395,15 @@ const DEVICES: Record<string, DeviceStatus> = {
   "SMX-KPRO-002": makeDevice("SMX-KPRO-002", 4)
 };
 
+DEVICES["SMX-KPRO-002"].channels.forEach((ch) => {
+  ch.speakerPreset = {
+    loaded: true,
+    locked: true,
+    name: "Factory Preset",
+    manufacturer: "Soundmax"
+  };
+});
+
 function makeDevice(id: string, channelsCount: number): DeviceStatus {
   return {
     deviceId: id,
@@ -400,6 +429,13 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
           enabled: true,
           valueSamples: 0
         },
+        speakerPreset: {
+          loaded: true,
+          locked: true,
+          name: "SMX Factory 12PRO",
+          manufacturer: "Soundmax"
+        },
+        speakerPreset: makeDefaultSpeakerPreset(),
         speakerFilters: makeDefaultSpeakerFilters(),
         speakerFir: makeDefaultFir(),
         flags: { clip: false, limit: false, protect: false, reason: "" },
@@ -767,9 +803,39 @@ app.post("/api/v1/devices/:id/input/:inputCh/output/:outputCh", (req, res) => {
   res.json({ cell });
 });
 
-// -------------- SPEAKER FILTERS --------------
+// -------------------- SPEAKER PRESET --------------------
 
-// -------------- SPEAKER FILTERS --------------
+app.get("/api/v1/devices/:id/ch/:ch/speaker/preset", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  res.json({
+    preset: channel.speakerPreset
+  });
+});
+
+app.post("/api/v1/devices/:id/ch/:ch/speaker/preset/clear", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  channel.speakerPreset = makeDefaultSpeakerPreset();
+  channel.speakerFilters = makeDefaultSpeakerFilters();
+  channel.speakerFir = makeDefaultFir();
+
+  res.json({
+    preset: channel.speakerPreset
+  });
+});
+
+// -------------------- SPEAKER FILTERS --------------------
 
 app.get("/api/v1/devices/:id/ch/:ch/speaker/filters", (req, res) => {
   const d = DEVICES[req.params.id];
@@ -802,7 +868,7 @@ app.post("/api/v1/devices/:id/ch/:ch/speaker/filters/:filterId", (req, res) => {
   if (typeof body.enabled === "boolean") filter.enabled = body.enabled;
 
   if (typeof body.type === "string") {
-    filter.type = body.type;
+    filter.type = body.type as FilterType;
 
     if (filter.type === "hpf" || filter.type === "lpf") {
       if (!filter.slope) filter.slope = 12;
@@ -817,12 +883,26 @@ app.post("/api/v1/devices/:id/ch/:ch/speaker/filters/:filterId", (req, res) => {
   if (typeof body.q === "number") filter.q = clampQ(body.q);
   if (typeof body.gainDb === "number") filter.gainDb = clampGain(body.gainDb);
 
+  if (typeof body.slope === "number") {
+    const allowed = [6, 12, 18, 24, 30, 36, 42, 48];
+    if (allowed.includes(body.slope)) {
+      filter.slope = body.slope as ChannelFilter["slope"];
+    }
+  }
+
+  if (typeof body.crossoverFamily === "string") {
+    const allowedFamilies = ["butterworth", "linkwitz_riley", "bessel"];
+    if (allowedFamilies.includes(body.crossoverFamily)) {
+      filter.crossoverFamily = body.crossoverFamily as CrossoverFamily;
+    }
+  }
+
   res.json({ filter });
 });
 
 // -------------------- FIR --------------------
 
-app.get("/api/v1/devices/:id/ch/:ch/fir", (req, res) => {
+app.get("/api/v1/devices/:id/ch/:ch/speaker/fir", (req, res) => {
   const d = DEVICES[req.params.id];
   if (!d) return res.status(404).json({ error: "device not found" });
 
@@ -835,7 +915,7 @@ app.get("/api/v1/devices/:id/ch/:ch/fir", (req, res) => {
   });
 });
 
-app.post("/api/v1/devices/:id/ch/:ch/fir", (req, res) => {
+app.post("/api/v1/devices/:id/ch/:ch/speaker/fir", (req, res) => {
   const d = DEVICES[req.params.id];
   if (!d) return res.status(404).json({ error: "device not found" });
 
@@ -868,7 +948,7 @@ app.post("/api/v1/devices/:id/ch/:ch/fir", (req, res) => {
   res.json({ speakerFir: channel.speakerFir });
 });
 
-app.post("/api/v1/devices/:id/ch/:ch/fir/upload", upload.single("file"), (req, res) => {
+app.post("/api/v1/devices/:id/ch/:ch/speaker/fir/upload", upload.single("file"), (req, res) => {
   const d = DEVICES[req.params.id];
   if (!d) return res.status(404).json({ error: "device not found" });
 

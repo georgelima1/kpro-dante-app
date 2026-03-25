@@ -8,6 +8,7 @@ import DelayPage from "./DelayPage";
 import FiltersPage from "./FiltersPage";
 import SpeakerPresetPage from "./SpeakerPresetPage";
 import SpeakerPresetFilterPage from "./SpeakerPresetFiltersPage";
+import SpeakerPresetDelayPage from "./SpeakerPresetDelayPage";
 import SpeakerPresetFIRPage from "./SpeakerPresetFIRPage";
 
 import React from "react";
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="speaker" element={<SpeakerPresetPage />} />
         <Route path="speaker/filters" element={<SpeakerPresetFilterPage />} />
         <Route path="speaker/fir" element={<SpeakerPresetFIRPage />} />
+        <Route path="speaker/delay" element={<SpeakerPresetDelayPage />} />
       </Route>
         
     </Routes>

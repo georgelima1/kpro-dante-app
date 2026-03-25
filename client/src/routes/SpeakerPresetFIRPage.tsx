@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useDevice } from "../state/DeviceContext";
 import { API_BASE } from "../config/endpoints";
 import FIRImportModal from "../ui/FIRImportModal";
+import SpeakerPresetLocked from "../ui/SpeakerPresetLocked"
 
 type FirState = {
   enabled: boolean;
@@ -13,6 +14,17 @@ type FirState = {
 export default function SpeakerPresetFIRPage() {
   const { status, deviceId, ch } = useDevice();
   const channel = status?.channels?.find((c) => c.ch === ch);
+
+  if (!status || !channel) return null;
+
+  if (channel.speakerPreset?.locked) {
+    return (
+      <SpeakerPresetLocked
+        title="Preset Locked"
+        message="This manufacturer preset is protected. FIR settings cannot be viewed or edited."
+      />
+    );
+  }
 
   const [speakerFir, setFir] = useState<FirState>({
     enabled: false,
@@ -30,7 +42,7 @@ export default function SpeakerPresetFIRPage() {
       if (!deviceId || !ch) return;
 
       try {
-        const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/fir`);
+        const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/speaker/fir`);
         const j = await r.json();
         if (alive) {
           setFir(
@@ -63,7 +75,7 @@ export default function SpeakerPresetFIRPage() {
   async function updateFir(patch: Partial<FirState>) {
     if (!deviceId || !ch) return;
 
-    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/fir`, {
+    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/speaker/fir`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch)
@@ -94,7 +106,7 @@ export default function SpeakerPresetFIRPage() {
     const form = new FormData();
     form.append("file", file);
 
-    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/fir/upload`, {
+    const r = await fetch(`${API_BASE}/api/v1/devices/${deviceId}/ch/${ch}/speaker/fir/upload`, {
       method: "POST",
       body: form
     });
@@ -126,8 +138,8 @@ export default function SpeakerPresetFIRPage() {
           <button
             onClick={() => updateFir({ enabled: !speakerFir.enabled })}
             className={`relative w-12 h-6 rounded-full border transition ${speakerFir.enabled
-                ? "bg-smx-red/30 border-smx-red/50"
-                : "bg-smx-panel2 border-smx-line"
+              ? "bg-smx-red/30 border-smx-red/50"
+              : "bg-smx-panel2 border-smx-line"
               }`}
             aria-label="FIR On/Off"
             title="FIR On/Off"
@@ -159,14 +171,14 @@ export default function SpeakerPresetFIRPage() {
               </div>
 
               <div className="flex justify-end gap-3">
-                <div className="flex justify-end gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={clearFir}
                     disabled={!speakerFir.loaded}
-                    className={`px-5 flex-1 py-3 text-sm font-semibold rounded-2xl transition ${speakerFir.loaded
-                        ? "bg-white/20 text-white hover:bg-white/25"
-                        : "bg-white/10 text-white/40 cursor-not-allowed"
+                    className={`h-12 w-24 rounded-2xl border border-smx-line bg-smx-panel2 text-white text-sm font-semibold tracking-[0.12em] uppercase hover:border-smx-red/40 transition active:scale-95 ${speakerFir.loaded
+                      ? "bg-white/20 text-white hover:bg-white/25"
+                      : "bg-white/10 text-white/40 cursor-not-allowed"
                       }`}
                   >
                     Clear
@@ -175,7 +187,7 @@ export default function SpeakerPresetFIRPage() {
                   <button
                     type="button"
                     onClick={() => setImportOpen(true)}
-                    className="px-5 flex-1 py-3 text-sm font-semibold rounded-2xl transition border bg-smx-red border-smx-red/40 text-smx-text"
+                    className="h-12 w-24 rounded-2xl border border-smx-red bg-smx-red/20 text-white text-sm font-semibold tracking-[0.12em] uppercase hover:bg-smx-red/30 hover:border-smx-red/60 transition active:scale-95"
                   >
                     Import
                   </button>
