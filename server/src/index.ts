@@ -41,6 +41,11 @@ type InputFilter = {
   crossoverFamily?: CrossoverFamily;
 };
 
+type UserPresetState = {
+  loaded: boolean;
+  name?: string;
+};
+
 type FirState = {
   enabled: boolean;
   loaded: boolean;
@@ -124,6 +129,7 @@ type DeviceStatus = {
   channelsCount: number;
   dsp: { sampleRate: number; delayMaxMs: number };
   channels: ChannelStatus[];
+  userPreset: UserPresetState;
   input: InputPageState;
 };
 
@@ -442,7 +448,11 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
         route: { from: "Input 1", to: `Out ${ch}` }
       };
     }),
-    input: makeInputState(channelsCount)
+    input: makeInputState(channelsCount),
+    userPreset: {
+      loaded: false,
+      name: ""
+    },
   };
 }
 
@@ -980,6 +990,88 @@ app.post("/api/v1/devices/:id/ch/:ch/speaker/fir/upload", upload.single("file"),
   channel.speakerFir.taps = lines.length;
 
   res.json({ speakerFir: channel.speakerFir });
+});
+
+// ---------------- USER PRESET --------------
+
+app.get("/api/v1/devices/:id/user-preset", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  res.json({ preset: d.userPreset });
+});
+
+app.post("/api/v1/devices/:id/user-preset/clear", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  d.userPreset = {
+    loaded: false,
+    name: ""
+  };
+
+  res.json({ preset: d.userPreset });
+});
+
+app.get("/api/v1/devices/:id/user-preset/export", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const payload = {
+    meta: {
+      deviceId: d.deviceId,
+      exportedAt: new Date().toISOString(),
+      type: "user-preset"
+    },
+    input: d.input,
+    channels: d.channels.map((c) => ({
+      ch: c.ch,
+      filters: c.filters
+    }))
+  };
+
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", `attachment; filename="user-preset-${d.deviceId}.json"`);
+  res.send(JSON.stringify(payload, null, 2));
+});
+
+app.post("/api/v1/devices/:id/user-preset/import", upload.single("file"), (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ error: "file not provided" });
+  }
+
+  try {
+    const text = file.buffer.toString("utf-8");
+    const parsed = JSON.parse(text);
+
+    if (parsed.input) {
+      d.input = parsed.input;
+    }
+
+    if (Array.isArray(parsed.channels)) {
+      parsed.channels.forEach((incoming: any) => {
+        const target = d.channels.find((c) => c.ch === incoming.ch);
+        if (!target) return;
+
+        if (Array.isArray(incoming.filters)) {
+          target.filters = incoming.filters;
+        }
+      });
+    }
+
+    d.userPreset = {
+      loaded: true,
+      name: file.originalname
+    };
+
+    res.json({ preset: d.userPreset });
+  } catch {
+    return res.status(400).json({ error: "invalid preset file" });
+  }
 });
 
 // -------------------- WS --------------------

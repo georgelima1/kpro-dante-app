@@ -2,8 +2,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import DevicesPage from "./DevicesPage";
 import DeviceLayout from "./DeviceLayout";
 import DashboardDevicePage from "./DashboardDevicePage";
+import UserPresetPage from "./UserPresetPage";
 import InputPage from "./InputPage";
-import RoutingPage from "./RoutingPage";
 import DelayPage from "./DelayPage";
 import FiltersPage from "./FiltersPage";
 import SpeakerPresetPage from "./SpeakerPresetPage";
@@ -25,15 +25,14 @@ export default function App() {
 
       {/* ✅ Com header fixo + seleção de CH */}
       <Route path="/devices/:id/*" element={<DeviceLayout />}>
-        <Route path="routing" element={<RoutingPage />} />
-        <Route path="delay" element={<DelayPage />} />
+        <Route path="preset" element={<UserPresetPage />} />
         <Route path="filters" element={<FiltersPage />} />
         <Route path="speaker" element={<SpeakerPresetPage />} />
         <Route path="speaker/filters" element={<SpeakerPresetFilterPage />} />
         <Route path="speaker/fir" element={<SpeakerPresetFIRPage />} />
         <Route path="speaker/delay" element={<SpeakerPresetDelayPage />} />
       </Route>
-        
+
     </Routes>
   );
 }

@@ -54,19 +54,12 @@ const nav: NavItem[] = [
       deviceId ? `/devices/${deviceId}/input` : "/devices"
   },
   {
-    key: "output",
+    key: "user-preset",
     label: "User Preset",
     icon: "output",
     href: ({ deviceId, ch }) =>
-      deviceId ? `/devices/${deviceId}/delay${ch ? `?ch=${ch}` : ""}` : "/devices",
+      deviceId ? `/devices/${deviceId}/preset${ch ? `?ch=${ch}` : ""}` : "/devices",
     children: [
-      {
-        key: "delay",
-        label: "Delay",
-        icon: "timer",
-        href: ({ deviceId, ch }) =>
-          deviceId ? `/devices/${deviceId}/delay${ch ? `?ch=${ch}` : ""}` : "/devices"
-      },
       {
         key: "filters",
         label: "Filters",
@@ -188,7 +181,7 @@ export default function Shell({ children }: PropsWithChildren) {
     if (isDeviceRoot) return "Dashboard";
 
     if (pathname.endsWith("/input")) return "Input";
-    if (pathname.endsWith("/delay")) return "Delay";
+    if (pathname.endsWith("/preset")) return "User Preset";
     if (pathname.endsWith("filters")) return "Filters";
     if (pathname.endsWith("/speaker/fir")) return "FIR";
     if (pathname.endsWith("/speaker/filters")) return "Speaker Filters";
@@ -233,8 +226,7 @@ export default function Shell({ children }: PropsWithChildren) {
   }, [drawerOpen]);
 
   useEffect(() => {
-    setOutputFlyoutOpen(false);
-    setFlyoutSpeakerOpen(false);
+    setUserPresetFlyoutOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -258,9 +250,15 @@ export default function Shell({ children }: PropsWithChildren) {
 
   }, [deviceId]);
 
+  useEffect(() => {
+    if (!drawerOpen) return;
 
-  // controla expansão do grupo Output
-  const [openOutput, setOpenOutput] = useState(() => {
+    setOpenUserPreset(false);
+    setOpenSpeaker(false);
+  }, [drawerOpen]);
+
+  // controla expansão do grupo UserPreset
+  const [openUserPreset, setOpenUserPreset] = useState(() => {
     return pathname.endsWith("/delay") || pathname.endsWith("/filters");
   });
 
@@ -268,10 +266,19 @@ export default function Shell({ children }: PropsWithChildren) {
     return pathname.includes("/speaker");
   });
 
-  const [outputFlyoutOpen, setOutputFlyoutOpen] = useState(false);
-  const [flyoutSpeakerOpen, setFlyoutSpeakerOpen] = useState(() => {
-    return pathname.includes("/speaker");
+  const [userPresetFlyoutOpen, setUserPresetFlyoutOpen] = useState(false);
+
+  const [userPresetFlyoutPos, setUserPresetFlyoutPos] = useState<{ top: number; left: number }>({
+    top: 112,
+    left: 92
   });
+
+  const [speakerFlyoutPos, setSpeakerFlyoutPos] = useState<{ top: number; left: number }>({
+    top: 112,
+    left: 92
+  });
+
+  const [speakerFlyoutOpen, setSpeakerFlyoutOpen] = useState(false);
 
   const sidebarWidth = collapsed ? 100 : 288;
 
@@ -298,7 +305,7 @@ export default function Shell({ children }: PropsWithChildren) {
     const href = item.href({ deviceId, ch });
     const basePath = href.split("?")[0];
     const isGroup = !!item.children?.length;
-    const isFlyoutGroup = item.key === "output" || item.key === "speaker";
+    const isFlyoutGroup = item.key === "user-preset" || item.key === "speaker";
 
     // ✅ Active correto (sem deixar tudo vermelho)
     const active = useMemo(() => {
@@ -311,21 +318,17 @@ export default function Shell({ children }: PropsWithChildren) {
 
       // 2) Dashboard: SOMENTE /devices/:id (index)
       if (item.key === "dashboard") {
-        return !!matchPath({ path: "/devices/:id", end: true }, pathname);
+        return !!matchPath({ path: `/devices/${deviceId}`, end: true }, pathname);
       }
 
-      // 3) Output (grupo): ativo em qualquer subrota de output
-      if (item.key === "output") {
-        return pathname.endsWith("/delay") || pathname.endsWith("/filters");
+      // 3) Input: SOMENTE /devices/:id (index)
+      if (item.key === "input") {
+        return pathname.startsWith(`/devices/${deviceId}/input`);
       }
 
-      if (item.key === "speaker") {
-        return pathname.startsWith(`/devices/${deviceId}/speaker`);
-      }
-
-      // 4) Subitens do Output (delay/filters/speaker): match exato
-      if (["delay", "filters"].includes(item.key)) {
-        return !!matchPath({ path: `/devices/:id/${item.key}`, end: true }, pathname);
+      // 3) User Preset (grupo): ativo em qualquer subrota de user-preset
+      if (item.key === "user-preset") {
+        return pathname.endsWith(`/devices/${deviceId}/preset`) || pathname.endsWith(`/devices/${deviceId}/filters`);
       }
 
       if (item.key === "speaker") {
@@ -337,27 +340,27 @@ export default function Shell({ children }: PropsWithChildren) {
       }
 
       if (item.key === "speaker-filters") {
-        return pathname === `/devices/${deviceId}/speaker/filters`;
+        return pathname.endsWith(`/devices/${deviceId}/speaker/filters`);
       }
 
       if (item.key === "speaker-fir") {
-        return pathname === `/devices/${deviceId}/speaker/fir`;
+        return pathname.endsWith(`/devices/${deviceId}/speaker/fir`);
       }
 
       if (item.key === "speaker-driver-alignment") {
-        return pathname === `/devices/${deviceId}/speaker/delay`;
+        return pathname.endsWith(`/devices/${deviceId}/speaker/delay`);
       }
 
       if (item.key === "speaker-polarity") {
-        return false;
+        return pathname.endsWith(`/devices/${deviceId}/speaker/polarity`);
       }
 
       if (item.key === "speaker-limiter") {
-        return false;
+        return pathname.endsWith(`/devices/${deviceId}/speaker/limiter`);
       }
 
-      if (item.key === "speaker-output-mode") {
-        return false;
+      if (item.key === "settings") {
+        return pathname.startsWith(`/devices/${deviceId}/settings`);
       }
 
       // 5) fallback: match exato por basePath
@@ -408,8 +411,8 @@ export default function Shell({ children }: PropsWithChildren) {
             onClick={(e) => {
               e.preventDefault();
 
-              if (item.key === "output") {
-                setOpenOutput((v) => !v);
+              if (item.key === "user-preset") {
+                setOpenUserPreset((v) => !v);
               } else if (item.key === "speaker") {
                 setOpenSpeaker((v) => !v);
               }
@@ -420,8 +423,8 @@ export default function Shell({ children }: PropsWithChildren) {
           >
             <Icon
               name={
-                item.key === "output"
-                  ? openOutput
+                item.key === "user-preset"
+                  ? openUserPreset
                     ? "expand_less"
                     : "expand_more"
                   : openSpeaker
@@ -437,16 +440,24 @@ export default function Shell({ children }: PropsWithChildren) {
 
     const node = item.disabled ? (
       <div className={`${cls} ${indent}`}>{content}</div>
-      ) : (isGroup && compact && isFlyoutGroup) ? (
-      // ✅ Sidebar recolhida: Output vira botão que abre flyout
+    ) : (isGroup && compact && isFlyoutGroup) ? (
       <button
         type="button"
         onClick={(e) => {
           e.preventDefault();
-          if (item.key === "output") {
-            setOutputFlyoutOpen((v) => !v);
+
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          const top = Math.max(12, rect.top + rect.height / 2 - 120);
+          const left = rect.right + 12;
+
+          if (item.key === "user-preset") {
+            setUserPresetFlyoutPos({ top, left });
+            setUserPresetFlyoutOpen((v) => !v);
+            setSpeakerFlyoutOpen(false);
           } else if (item.key === "speaker") {
-            setFlyoutSpeakerOpen((v) => !v);
+            setSpeakerFlyoutPos({ top, left });
+            setSpeakerFlyoutOpen((v) => !v);
+            setUserPresetFlyoutOpen(false);
           }
         }}
         className={`${cls} ${indent} w-full text-left`}
@@ -490,13 +501,12 @@ export default function Shell({ children }: PropsWithChildren) {
           )}
         </div>
 
-
         <nav className="space-y-3">
           {nav.map((item) => (
             <div key={item.key}>
               <NavLinkItem item={item} compact={compact} level={0} />
 
-              {!compact && item.key === "output" && openOutput && item.children && (
+              {!compact && item.key === "user-preset" && openUserPreset && item.children && (
                 <div className="mt-2 space-y-2">
                   {item.children.map((c) => (
                     <NavLinkItem key={c.key} item={c} compact={compact} level={1} />
@@ -515,95 +525,56 @@ export default function Shell({ children }: PropsWithChildren) {
           ))}
         </nav>
 
-        {compact && outputFlyoutOpen && (
-          <div className="fixed inset-0 z-50" onClick={() => setOutputFlyoutOpen(false)}>
+        {compact && userPresetFlyoutOpen && (
+          <div className="fixed inset-0 z-50" onClick={() => setUserPresetFlyoutOpen(false)}>
             {/* painel flutuante */}
-            <div
-              className="absolute left-[92px] top-[112px] w-[280px] max-h-[calc(100vh-140px)] rounded-2xl border border-smx-line bg-smx-panel shadow-2xl overflow-hidden"
+            <div style={{
+              left: userPresetFlyoutPos.left,
+              top: userPresetFlyoutPos.top
+            }}
+              className="absolute w-[280px] max-h-[calc(100vh-24px)] rounded-2xl border border-smx-line bg-smx-panel shadow-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="sticky top-0 z-10 bg-smx-panel px-3 pt-3 pb-2 border-b border-smx-line">
-                <div className="text-sm md:text-xs text-smx-muted">Output</div>
+                <div className="text-sm md:text-xs text-smx-muted">User Preset</div>
               </div>
 
               <div className="p-3 overflow-y-auto max-h-[calc(100vh-190px)]">
                 {nav
-                  .find((x) => x.key === "output")
-                  ?.children?.map((c) => {
-                    const href = c.href({ deviceId, ch });
-                    const active =
-                      c.key === "speaker"
-                        ? pathname.startsWith(`/devices/${deviceId}/speaker`)
-                        : !!matchPath({ path: href.split("?")[0], end: true }, pathname);
+                  .find((x) => x.key === "user-preset")
+                  ?.children?.map((sub) => {
+                    const subHref = sub.href({ deviceId, ch });
+                    const subActive =
+                      sub.key === "delay"
+                        ? pathname === `/devices/${deviceId}/delay`
+                        : sub.key === "filters"
+                          ? pathname === `/devices/${deviceId}/filters`
+                          : false;
 
-                    if (c.key === "speaker") {
-                      return (
-                        <div key={c.key}>
-                          <button
-                            type="button"
-                            onClick={() => setFlyoutSpeakerOpen((v) => !v)}
-                            className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 border transition text-left ${active
-                              ? "bg-smx-red/15 border-smx-red/40"
-                              : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                    return (
+                      <div key={sub.key}>
+                        <button
+                          type="button"
+                          className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 border transition text-left ${subActive
+                            ? "bg-smx-red/15 border-smx-red/40"
+                            : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                            }`}
+                        >
+                          <div
+                            className={`grid place-items-center w-10 h-10 rounded-xl border ${subActive ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
                               }`}
                           >
-                            <div
-                              className={`grid place-items-center w-10 h-10 rounded-xl border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
-                                }`}
-                            >
-                              <Icon
-                                name={c.icon}
-                                className={active ? "text-smx-red" : "text-smx-muted"}
-                                filled={active}
-                              />
-                            </div>
-
-                            <div className="flex-1 font-light">{c.label}</div>
-
                             <Icon
-                              name={flyoutSpeakerOpen ? "expand_less" : "expand_more"}
-                              className="text-smx-muted"
+                              name={sub.icon}
+                              className={subActive ? "text-smx-red" : "text-smx-muted"}
+                              filled={subActive}
                             />
-                          </button>
+                          </div>
 
-                          {flyoutSpeakerOpen && c.children && (
-                            <div className="mt-2 ml-6 space-y-2">
-                              {c.children.map((sub) => {
-                                const subHref = sub.href({ deviceId, ch });
-                                const subActive =
-                                  sub.key === "speaker-fir"
-                                    ? pathname === `/devices/${deviceId}/speaker/fir`
-                                    : false;
-
-                                return (
-                                  <Link
-                                    key={sub.key}
-                                    to={subHref}
-                                    className={`flex items-center gap-2 rounded-xl px-2.5 py-2 border transition ${subActive
-                                      ? "bg-smx-red/15 border-smx-red/40"
-                                      : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
-                                      }`}
-                                  >
-                                    <div
-                                      className={`grid place-items-center w-8 h-8 rounded-lg border ${subActive ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
-                                        }`}
-                                    >
-                                      <Icon
-                                        name={sub.icon}
-                                        className={`${subActive ? "text-smx-red" : "text-smx-muted"} scale-90`}
-                                        filled={subActive}
-                                      />
-                                    </div>
-
-                                    <div className="text-sm font-light">{sub.label}</div>
-                                  </Link>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
+                          <div className="flex-1 font-light">{sub.label}</div>
+                        </button>
+                      </div>
+                    );
 
                     return (
                       <Link
@@ -631,15 +602,74 @@ export default function Shell({ children }: PropsWithChildren) {
               </div>
             </div>
           </div>
-        )}
+        )
+        }
 
+        {compact && speakerFlyoutOpen && (
+          <div className="fixed inset-0 z-50" onClick={() => setSpeakerFlyoutOpen(false)}>
+            <div
+              style={{
+                left: speakerFlyoutPos.left,
+                top: speakerFlyoutPos.top
+              }}
+              className="absolute w-[280px] max-h-[calc(100vh-24px)] rounded-2xl border border-smx-line bg-smx-panel shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 z-10 bg-smx-panel px-3 pt-3 pb-2 border-b border-smx-line">
+                <div className="text-sm md:text-xs text-smx-muted">Speaker Preset</div>
+              </div>
 
-        {!compact && (
-          <div className="mt-10 text-sm md:text-xs text-smx-muted">
-            V0 preparado p/ login, histórico, permissões e OTA (V1+).
+              <div className="p-3 overflow-y-auto max-h-[calc(100vh-74px)] space-y-2">
+                {nav
+                  .find((x) => x.key === "speaker")
+                  ?.children?.map((sub) => {
+                    const subHref = sub.href({ deviceId, ch });
+                    const subActive =
+                      sub.key === "speaker-filters"
+                        ? pathname === `/devices/${deviceId}/speaker/filters`
+                        : sub.key === "speaker-fir"
+                          ? pathname === `/devices/${deviceId}/speaker/fir`
+                          : sub.key === "speaker-driver-alignment"
+                            ? pathname === `/devices/${deviceId}/speaker/delay`
+                            : false;
+
+                    return (
+                      <Link
+                        key={sub.key}
+                        to={subHref}
+                        className={`flex items-center gap-2 rounded-xl px-2.5 py-2 border transition ${subActive
+                          ? "bg-smx-red/15 border-smx-red/40"
+                          : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                          }`}
+                      >
+                        <div
+                          className={`grid place-items-center w-8 h-8 rounded-lg border ${subActive ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
+                            }`}
+                        >
+                          <Icon
+                            name={sub.icon}
+                            className={`${subActive ? "text-smx-red" : "text-smx-muted"} scale-90`}
+                            filled={subActive}
+                          />
+                        </div>
+
+                        <div className="text-sm font-light">{sub.label}</div>
+                      </Link>
+                    );
+                  })}
+              </div>
+            </div>
           </div>
         )}
-      </aside>
+
+        {
+          !compact && (
+            <div className="mt-10 text-sm md:text-xs text-smx-muted">
+              V0 preparado p/ login, histórico, permissões e OTA (V1+).
+            </div>
+          )
+        }
+      </aside >
     );
   }
 
