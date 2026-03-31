@@ -99,6 +99,9 @@ export default function UserPresetPage() {
       <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-smx-line flex items-center gap-3">
           <div className="text-base font-semibold">User Preset</div>
+          <div className="text-sm md:text-xs text-smx-muted">
+              Input and User Preset (Filters)
+            </div>
         </div>
 
         <div className="p-5 space-y-5">

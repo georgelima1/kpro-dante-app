@@ -2,13 +2,20 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { useLocation, useNavigate } from "react-router-dom";
 import { FilterBand } from "../types/filters";
 
-export type ChannelStatus = {
+type ChannelStatus = {
   ch: number;
   name?: string;
   audio: { mute: boolean; gainDb: number; polarity: 1 | -1 };
   meters: { rmsDb: number; peakDb: number };
   delay: { enabled: boolean; valueSamples: number };
-  filters: FilterBand[];
+
+  filters: ChannelFilter[];
+
+  speakerPreset: SpeakerPresetState;
+  speakerFilters: ChannelFilter[];
+  speakerFir: FirState;
+  speakerLimiter: SpeakerLimiterState;
+
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
 };

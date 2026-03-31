@@ -41,6 +41,35 @@ type InputFilter = {
   crossoverFamily?: CrossoverFamily;
 };
 
+type SpeakerPresetPolarityState = {
+  polarity: 1 | -1;
+};
+
+type PeakLimiterMode = "auto" | "manual";
+
+type PeakLimiterState = {
+  mode: PeakLimiterMode;
+  thresholdVpeak: number;
+  attackMs: number;
+  holdMs: number;
+  releaseMs: number;
+  kneeDb: number;
+};
+
+type RmsLimiterState = {
+  enabled: boolean;
+  thresholdVrms: number;
+  attackMs: number;
+  holdMs: number;
+  releaseMs: number;
+  kneeDb: number;
+};
+
+type SpeakerLimiterState = {
+  peak: PeakLimiterState;
+  rms: RmsLimiterState;
+};
+
 type UserPresetState = {
   loaded: boolean;
   name?: string;
@@ -72,6 +101,8 @@ type ChannelStatus = {
   speakerPreset: SpeakerPresetState;
   speakerFilters: ChannelFilter[];
   speakerFir: FirState;
+  speakerLimiter: SpeakerLimiterState;
+  speakerPolarity: SpeakerPresetPolarityState;
 
   flags: { clip: boolean; limit: boolean; protect: boolean; reason?: string };
   route?: { from: string; to?: string };
@@ -282,6 +313,12 @@ function makeDefaultFilters(): ChannelFilter[] {
   ];
 }
 
+function makeDefaultSpeakerPolarity(): SpeakerPresetPolarityState {
+  return {
+    polarity: 1
+  };
+}
+
 function makeDefaultInputFilters(): InputFilter[] {
   return [
     {
@@ -351,6 +388,27 @@ function makeDefaultSpeakerPreset(): SpeakerPresetState {
 
 function makeDefaultSpeakerFilters(): ChannelFilter[] {
   return makeDefaultFilters();
+}
+
+function makeDefaultSpeakerLimiter(): SpeakerLimiterState {
+  return {
+    peak: {
+      mode: "manual",
+      thresholdVpeak: 63.6,
+      attackMs: 1.0,
+      holdMs: 0.0,
+      releaseMs: 10.0,
+      kneeDb: 0.0
+    },
+    rms: {
+      enabled: false,
+      thresholdVrms: 45.0,
+      attackMs: 25.0,
+      holdMs: 0.0,
+      releaseMs: 400,
+      kneeDb: 0.0
+    }
+  };
 }
 
 function makeInputState(channelsCount: number): InputPageState {
@@ -444,6 +502,8 @@ function makeDevice(id: string, channelsCount: number): DeviceStatus {
         speakerPreset: makeDefaultSpeakerPreset(),
         speakerFilters: makeDefaultSpeakerFilters(),
         speakerFir: makeDefaultFir(),
+        speakerLimiter: makeDefaultSpeakerLimiter(),
+        speakerPolarity: makeDefaultSpeakerPolarity(),
         flags: { clip: false, limit: false, protect: false, reason: "" },
         route: { from: "Input 1", to: `Out ${ch}` }
       };
@@ -594,6 +654,52 @@ app.post("/api/v1/devices/:id/ch/:ch/filters/:filterId", (req, res) => {
   }
 
   res.json({ filter });
+});
+
+// -------------------- SPEAKER POLARITY --------------------
+
+app.get("/api/v1/devices/:id/ch/:ch/speaker/polarity", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  if (!channel.speakerPolarity) {
+    channel.speakerPolarity = makeDefaultSpeakerPolarity();
+  }
+
+  res.json({
+    polarity: channel.speakerPolarity
+  });
+});
+
+app.post("/api/v1/devices/:id/ch/:ch/speaker/polarity", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  if (!channel.speakerPolarity) {
+    channel.speakerPolarity = makeDefaultSpeakerPolarity();
+  }
+
+  if (channel.speakerPreset?.locked) {
+    return res.status(403).json({ error: "speaker preset locked" });
+  }
+
+  const body = req.body ?? {};
+
+  if (body.polarity === 1 || body.polarity === -1) {
+    channel.speakerPolarity.polarity = body.polarity;
+  }
+
+  res.json({
+    polarity: channel.speakerPolarity
+  });
 });
 
 // -------------------- INPUT PAGE --------------------
@@ -870,6 +976,10 @@ app.post("/api/v1/devices/:id/ch/:ch/speaker/filters/:filterId", (req, res) => {
   const channel = d.channels.find((c) => c.ch === chNum);
   if (!channel) return res.status(404).json({ error: "channel not found" });
 
+  if (channel.speakerPreset?.locked) {
+    return res.status(403).json({ error: "speaker preset locked" });
+  }
+
   const filter = channel.speakerFilters.find((f) => f.id === filterId);
   if (!filter) return res.status(404).json({ error: "filter not found" });
 
@@ -933,6 +1043,10 @@ app.post("/api/v1/devices/:id/ch/:ch/speaker/fir", (req, res) => {
   const channel = d.channels.find((c) => c.ch === chNum);
   if (!channel) return res.status(404).json({ error: "channel not found" });
 
+  if (channel.speakerPreset?.locked) {
+    return res.status(403).json({ error: "speaker preset locked" });
+  }
+
   if (!channel.speakerFir) {
     channel.speakerFir = makeDefaultFir();
   }
@@ -965,6 +1079,10 @@ app.post("/api/v1/devices/:id/ch/:ch/speaker/fir/upload", upload.single("file"),
   const chNum = Number(req.params.ch);
   const channel = d.channels.find((c) => c.ch === chNum);
   if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  if (channel.speakerPreset?.locked) {
+    return res.status(403).json({ error: "speaker preset locked" });
+  }
 
   const file = req.file;
   if (!file) {
@@ -1072,6 +1190,111 @@ app.post("/api/v1/devices/:id/user-preset/import", upload.single("file"), (req, 
   } catch {
     return res.status(400).json({ error: "invalid preset file" });
   }
+});
+
+// -------------------- SPEAKER LIMITER --------------------
+
+app.get("/api/v1/devices/:id/ch/:ch/speaker/limiter", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  if (!channel.speakerLimiter) {
+    channel.speakerLimiter = makeDefaultSpeakerLimiter();
+  }
+
+  res.json({
+    limiter: channel.speakerLimiter
+  });
+});
+
+app.post("/api/v1/devices/:id/ch/:ch/speaker/limiter", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const chNum = Number(req.params.ch);
+  const channel = d.channels.find((c) => c.ch === chNum);
+  if (!channel) return res.status(404).json({ error: "channel not found" });
+
+  if (channel.speakerPreset?.locked) {
+    return res.status(403).json({ error: "speaker preset locked" });
+  }
+
+  if (!channel.speakerLimiter) {
+    channel.speakerLimiter = makeDefaultSpeakerLimiter();
+  }
+
+  const body = req.body ?? {};
+
+  if (body.peak && typeof body.peak === "object") {
+    const peak = body.peak;
+
+    if (peak.mode === "auto" || peak.mode === "manual") {
+      channel.speakerLimiter.peak.mode = peak.mode;
+    }
+
+    if (typeof peak.thresholdVpeak === "number") {
+      channel.speakerLimiter.peak.thresholdVpeak = clamp(peak.thresholdVpeak, 0, 500);
+    }
+
+    if (typeof peak.attackMs === "number") {
+      channel.speakerLimiter.peak.attackMs = clamp(peak.attackMs, 0, 10000);
+    }
+
+    if (typeof peak.holdMs === "number") {
+      channel.speakerLimiter.peak.holdMs = clamp(peak.holdMs, 0, 10000);
+    }
+
+    if (typeof peak.releaseMs === "number") {
+      channel.speakerLimiter.peak.releaseMs = clamp(peak.releaseMs, 0.1, 100000);
+    }
+
+    if (typeof peak.kneeDb === "number") {
+      channel.speakerLimiter.peak.kneeDb = clamp(peak.kneeDb, 0, 24);
+    }
+  }
+
+  if (body.rms && typeof body.rms === "object") {
+    const rms = body.rms;
+
+    if (typeof rms.enabled === "boolean") {
+      channel.speakerLimiter.rms.enabled = rms.enabled;
+    }
+
+    if (typeof rms.thresholdVrms === "number") {
+      channel.speakerLimiter.rms.thresholdVrms = clamp(rms.thresholdVrms, 0, 500);
+    }
+
+    if (typeof rms.attackMs === "number") {
+      channel.speakerLimiter.rms.attackMs = clamp(rms.attackMs, 0, 100000);
+    }
+
+    if (typeof rms.holdMs === "number") {
+      channel.speakerLimiter.rms.holdMs = clamp(rms.holdMs, 0, 100000);
+    }
+
+    if (typeof rms.releaseMs === "number") {
+      channel.speakerLimiter.rms.releaseMs = clamp(rms.releaseMs, 0.1, 100000);
+    }
+
+    if (typeof rms.kneeDb === "number") {
+      channel.speakerLimiter.rms.kneeDb = clamp(rms.kneeDb, 0, 24);
+    }
+
+    const ratio = 1.4142;
+
+    if (channel.speakerLimiter.rms.thresholdVrms * ratio > channel.speakerLimiter.peak.thresholdVpeak) {
+      channel.speakerLimiter.rms.thresholdVrms =
+        channel.speakerLimiter.peak.thresholdVpeak / ratio;
+    }
+  }
+
+  res.json({
+    limiter: channel.speakerLimiter
+  });
 });
 
 // -------------------- WS --------------------

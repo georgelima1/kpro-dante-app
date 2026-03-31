@@ -154,7 +154,7 @@ export default function Shell({ children }: PropsWithChildren) {
     try {
       return localStorage.getItem("smx.sidebar.collapsed") === "1";
     } catch {
-      return false;
+      return true;
     }
   });
 
@@ -257,9 +257,8 @@ export default function Shell({ children }: PropsWithChildren) {
     setOpenSpeaker(false);
   }, [drawerOpen]);
 
-  // controla expansão do grupo UserPreset
   const [openUserPreset, setOpenUserPreset] = useState(() => {
-    return pathname.endsWith("/delay") || pathname.endsWith("/filters");
+    return pathname.includes("/preset") || pathname.includes("/filters");
   });
 
   const [openSpeaker, setOpenSpeaker] = useState(() => {
@@ -281,6 +280,35 @@ export default function Shell({ children }: PropsWithChildren) {
   const [speakerFlyoutOpen, setSpeakerFlyoutOpen] = useState(false);
 
   const sidebarWidth = collapsed ? 100 : 288;
+
+  function getFlyoutPosition(triggerEl: HTMLElement, itemCount: number) {
+    const rect = triggerEl.getBoundingClientRect();
+
+    const headerHeight = 44;
+    const panelPadding = 24;
+    const itemHeight = 52;
+    const itemGap = 8;
+    const viewportMargin = 12;
+
+    const contentHeight =
+      itemCount > 0
+        ? itemCount * itemHeight + (itemCount - 1) * itemGap
+        : itemHeight;
+
+    const estimatedHeight = headerHeight + panelPadding + contentHeight;
+
+    const maxHeight = window.innerHeight - viewportMargin * 2;
+    const clampedHeight = Math.min(estimatedHeight, maxHeight);
+
+    const preferredTop = rect.top + rect.height / 2 - clampedHeight / 2;
+    const minTop = viewportMargin;
+    const maxTop = window.innerHeight - clampedHeight - viewportMargin;
+
+    return {
+      top: Math.max(minTop, Math.min(preferredTop, maxTop)),
+      left: rect.right + 12
+    };
+  }
 
   function isActivePath(pathname: string, targetPath: string) {
     // ignora querystring
@@ -328,15 +356,14 @@ export default function Shell({ children }: PropsWithChildren) {
 
       // 3) User Preset (grupo): ativo em qualquer subrota de user-preset
       if (item.key === "user-preset") {
-        return pathname.endsWith(`/devices/${deviceId}/preset`) || pathname.endsWith(`/devices/${deviceId}/filters`);
+        return (
+          pathname === `/devices/${deviceId}/preset` ||
+          pathname === `/devices/${deviceId}/filters`
+        );
       }
 
       if (item.key === "speaker") {
         return pathname.startsWith(`/devices/${deviceId}/speaker`);
-      }
-
-      if (item.key === "speaker-crossover-gain") {
-        return false;
       }
 
       if (item.key === "speaker-filters") {
@@ -446,16 +473,15 @@ export default function Shell({ children }: PropsWithChildren) {
         onClick={(e) => {
           e.preventDefault();
 
-          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          const top = Math.max(12, rect.top + rect.height / 2 - 120);
-          const left = rect.right + 12;
+          const count = item.children?.length ?? 0;
+          const pos = getFlyoutPosition(e.currentTarget as HTMLElement, count);
 
           if (item.key === "user-preset") {
-            setUserPresetFlyoutPos({ top, left });
+            setUserPresetFlyoutPos(pos);
             setUserPresetFlyoutOpen((v) => !v);
             setSpeakerFlyoutOpen(false);
           } else if (item.key === "speaker") {
-            setSpeakerFlyoutPos({ top, left });
+            setSpeakerFlyoutPos(pos);
             setSpeakerFlyoutOpen((v) => !v);
             setUserPresetFlyoutOpen(false);
           }
@@ -477,7 +503,7 @@ export default function Shell({ children }: PropsWithChildren) {
 
   function SidebarContent({ compact }: { compact: boolean }) {
     return (
-      <aside className={`h-full bg-smx-panel border-r border-smx-line ${compact ? "p-3" : "p-6"}`}>
+      <aside className={`min-h-full bg-smx-panel border-r border-smx-line ${compact ? "p-3" : "p-6"}`}>
         <div className={compact ? "mb-6 text-center" : "mb-8"}>
           {compact ? (
             <>
@@ -545,57 +571,31 @@ export default function Shell({ children }: PropsWithChildren) {
                   ?.children?.map((sub) => {
                     const subHref = sub.href({ deviceId, ch });
                     const subActive =
-                      sub.key === "delay"
-                        ? pathname === `/devices/${deviceId}/delay`
-                        : sub.key === "filters"
-                          ? pathname === `/devices/${deviceId}/filters`
-                          : false;
-
-                    return (
-                      <div key={sub.key}>
-                        <button
-                          type="button"
-                          className={`w-full flex items-center gap-3 rounded-xl px-3 py-3 border transition text-left ${subActive
-                            ? "bg-smx-red/15 border-smx-red/40"
-                            : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
-                            }`}
-                        >
-                          <div
-                            className={`grid place-items-center w-10 h-10 rounded-xl border ${subActive ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
-                              }`}
-                          >
-                            <Icon
-                              name={sub.icon}
-                              className={subActive ? "text-smx-red" : "text-smx-muted"}
-                              filled={subActive}
-                            />
-                          </div>
-
-                          <div className="flex-1 font-light">{sub.label}</div>
-                        </button>
-                      </div>
-                    );
+                      sub.key === "filters"
+                        ? pathname === `/devices/${deviceId}/filters`
+                        : false;
 
                     return (
                       <Link
-                        key={c.key}
-                        to={href}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-3 border transition ${active
-                          ? "bg-smx-red/15 border-smx-red/40"
-                          : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                        key={sub.key}
+                        to={subHref}
+                        className={`flex items-center gap-3 rounded-xl px-3 py-3 border transition ${subActive
+                            ? "bg-smx-red/15 border-smx-red/40"
+                            : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
                           }`}
                       >
                         <div
-                          className={`grid place-items-center w-10 h-10 rounded-xl border ${active ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
+                          className={`grid place-items-center w-10 h-10 rounded-xl border ${subActive ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
                             }`}
                         >
                           <Icon
-                            name={c.icon}
-                            className={active ? "text-smx-red" : "text-smx-muted"}
-                            filled={active}
+                            name={sub.icon}
+                            className={subActive ? "text-smx-red" : "text-smx-muted"}
+                            filled={subActive}
                           />
                         </div>
-                        <div className="font-light">{c.label}</div>
+
+                        <div className="font-light">{sub.label}</div>
                       </Link>
                     );
                   })}
@@ -631,7 +631,11 @@ export default function Shell({ children }: PropsWithChildren) {
                           ? pathname === `/devices/${deviceId}/speaker/fir`
                           : sub.key === "speaker-driver-alignment"
                             ? pathname === `/devices/${deviceId}/speaker/delay`
-                            : false;
+                            : sub.key === "speaker-polarity"
+                              ? pathname === `/devices/${deviceId}/speaker/polarity`
+                              : sub.key === "speaker-limiter"
+                                ? pathname === `/devices/${deviceId}/speaker/limiter`
+                                : false;
 
                     return (
                       <Link
@@ -811,10 +815,10 @@ export default function Shell({ children }: PropsWithChildren) {
             onClick={() => setDrawerOpen(false)}
           />
           <div
-            className={`absolute left-0 top-0 h-full w-[85%] max-w-[340px] shadow-2xl transition-transform duration-200 ease-out ${drawerOpen ? "translate-x-0" : "-translate-x-full"
+            className={`absolute left-0 top-0 h-full w-[85%] max-w-[340px] bg-smx-panel shadow-2xl transition-transform duration-200 ease-out flex flex-col ${drawerOpen ? "translate-x-0" : "-translate-x-full"
               }`}
           >
-            <div className="flex items-center justify-between bg-smx-panel border-b border-smx-line p-4">
+            <div className="shrink-0 flex items-center justify-between bg-smx-panel border-b border-smx-line p-4">
               <div className="text-base font-semibold">
                 <span className="text-smx-red">Soundmax</span>{" "}
                 <span className="text-smx-muted">Control</span>
@@ -828,7 +832,9 @@ export default function Shell({ children }: PropsWithChildren) {
               </button>
             </div>
 
-            <SidebarContent compact={false} />
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <SidebarContent compact={false} />
+            </div>
           </div>
         </div>
       </div>
