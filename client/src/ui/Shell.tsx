@@ -61,6 +61,13 @@ const nav: NavItem[] = [
       deviceId ? `/devices/${deviceId}/preset${ch ? `?ch=${ch}` : ""}` : "/devices",
     children: [
       {
+        key: "user-preset-home",
+        label: "User Preset",
+        icon: "output",
+        href: ({ deviceId, ch }) =>
+          deviceId ? `/devices/${deviceId}/preset${ch ? `?ch=${ch}` : ""}` : "/devices"
+      },
+      {
         key: "filters",
         label: "Filters",
         icon: "equalizer",
@@ -76,6 +83,13 @@ const nav: NavItem[] = [
     href: ({ deviceId, ch }) =>
       deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices",
     children: [
+      {
+        key: "speaker-home",
+        label: "Speaker Preset",
+        icon: "speaker",
+        href: ({ deviceId, ch }) =>
+          deviceId ? `/devices/${deviceId}/speaker${ch ? `?ch=${ch}` : ""}` : "/devices"
+      },
       {
         key: "speaker-filters",
         label: "Filters",
@@ -110,13 +124,6 @@ const nav: NavItem[] = [
         icon: "speed",
         href: ({ deviceId, ch }) =>
           deviceId ? `/devices/${deviceId}/speaker/limiter${ch ? `?ch=${ch}` : ""}` : "/devices"
-      },
-      {
-        key: "speaker-output-mode",
-        label: "Output Mode",
-        icon: "speaker_notes",
-        href: ({ deviceId, ch }) =>
-          deviceId ? `/devices/${deviceId}/speaker/output-mode${ch ? `?ch=${ch}` : ""}` : "/devices"
       }
     ]
   },
@@ -181,12 +188,16 @@ export default function Shell({ children }: PropsWithChildren) {
     if (isDeviceRoot) return "Dashboard";
 
     if (pathname.endsWith("/input")) return "Input";
-    if (pathname.endsWith("/preset")) return "User Preset";
-    if (pathname.endsWith("filters")) return "Filters";
-    if (pathname.endsWith("/speaker/fir")) return "FIR";
+    
+    if (pathname.endsWith("/speaker/fir")) return "Speaker FIR";
     if (pathname.endsWith("/speaker/filters")) return "Speaker Filters";
     if (pathname.endsWith("/speaker/delay")) return "Speaker Delay";
+    if (pathname.endsWith("/speaker/polarity")) return "Speaker Polarity";
+    if (pathname.endsWith("/speaker/limiter")) return "Speaker Limiter";
     if (pathname.endsWith("/speaker")) return "Speaker Preset";
+
+    if (pathname.endsWith("/preset")) return "User Preset";
+    if (pathname.endsWith("filters")) return "User Filters";
 
     return ""; // fallback
   }, [pathname, deviceId, isDeviceRoot]);
@@ -338,23 +349,20 @@ export default function Shell({ children }: PropsWithChildren) {
     // ✅ Active correto (sem deixar tudo vermelho)
     const active = useMemo(() => {
       if (item.disabled) return false;
+      if (!deviceId) return false;
 
-      // 1) Devices: SOMENTE /devices (exato)
       if (item.key === "devices") {
         return pathname === "/devices";
       }
 
-      // 2) Dashboard: SOMENTE /devices/:id (index)
       if (item.key === "dashboard") {
-        return !!matchPath({ path: `/devices/${deviceId}`, end: true }, pathname);
+        return pathname === `/devices/${deviceId}`;
       }
 
-      // 3) Input: SOMENTE /devices/:id (index)
       if (item.key === "input") {
-        return pathname.startsWith(`/devices/${deviceId}/input`);
+        return pathname === `/devices/${deviceId}/input`;
       }
 
-      // 3) User Preset (grupo): ativo em qualquer subrota de user-preset
       if (item.key === "user-preset") {
         return (
           pathname === `/devices/${deviceId}/preset` ||
@@ -362,37 +370,48 @@ export default function Shell({ children }: PropsWithChildren) {
         );
       }
 
+      if (item.key === "user-preset-home") {
+        return pathname === `/devices/${deviceId}/preset`;
+      }
+
+      if (item.key === "filters") {
+        return pathname === `/devices/${deviceId}/filters`;
+      }
+
       if (item.key === "speaker") {
         return pathname.startsWith(`/devices/${deviceId}/speaker`);
       }
 
+      if (item.key === "speaker-home") {
+        return pathname === `/devices/${deviceId}/speaker`;
+      }
+
       if (item.key === "speaker-filters") {
-        return pathname.endsWith(`/devices/${deviceId}/speaker/filters`);
+        return pathname === `/devices/${deviceId}/speaker/filters`;
       }
 
       if (item.key === "speaker-fir") {
-        return pathname.endsWith(`/devices/${deviceId}/speaker/fir`);
+        return pathname === `/devices/${deviceId}/speaker/fir`;
       }
 
       if (item.key === "speaker-driver-alignment") {
-        return pathname.endsWith(`/devices/${deviceId}/speaker/delay`);
+        return pathname === `/devices/${deviceId}/speaker/delay`;
       }
 
       if (item.key === "speaker-polarity") {
-        return pathname.endsWith(`/devices/${deviceId}/speaker/polarity`);
+        return pathname === `/devices/${deviceId}/speaker/polarity`;
       }
 
       if (item.key === "speaker-limiter") {
-        return pathname.endsWith(`/devices/${deviceId}/speaker/limiter`);
+        return pathname === `/devices/${deviceId}/speaker/limiter`;
       }
 
       if (item.key === "settings") {
         return pathname.startsWith(`/devices/${deviceId}/settings`);
       }
 
-      // 5) fallback: match exato por basePath
       return pathname === basePath;
-    }, [item.key, item.disabled, pathname, basePath]);
+    }, [item.key, item.disabled, pathname, basePath, deviceId]);
 
     const base =
       level === 2
@@ -534,17 +553,33 @@ export default function Shell({ children }: PropsWithChildren) {
 
               {!compact && item.key === "user-preset" && openUserPreset && item.children && (
                 <div className="mt-2 space-y-2">
-                  {item.children.map((c) => (
-                    <NavLinkItem key={c.key} item={c} compact={compact} level={1} />
-                  ))}
+                  {item.children
+                    .filter((sub) => {
+                      if (!compact) {
+                        // esconder itens "home" no menu expandido
+                        return !sub.key.endsWith("-home");
+                      }
+                      return true;
+                    })
+                    .map((sub) => (
+                      <NavLinkItem key={sub.key} item={sub} compact={compact} level={1} />
+                    ))}
                 </div>
               )}
 
               {!compact && item.key === "speaker" && openSpeaker && item.children && (
                 <div className="mt-2 space-y-2">
-                  {item.children.map((sub) => (
-                    <NavLinkItem key={sub.key} item={sub} compact={compact} level={1} />
-                  ))}
+                  {item.children
+                    .filter((sub) => {
+                      if (!compact) {
+                        // esconder itens "home" no menu expandido
+                        return !sub.key.endsWith("-home");
+                      }
+                      return true;
+                    })
+                    .map((sub) => (
+                      <NavLinkItem key={sub.key} item={sub} compact={compact} level={2} />
+                    ))}
                 </div>
               )}
             </div>
@@ -561,31 +596,29 @@ export default function Shell({ children }: PropsWithChildren) {
               className="absolute w-[280px] max-h-[calc(100vh-24px)] rounded-2xl border border-smx-line bg-smx-panel shadow-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 z-10 bg-smx-panel px-3 pt-3 pb-2 border-b border-smx-line">
-                <div className="text-sm md:text-xs text-smx-muted">User Preset</div>
-              </div>
-
-              <div className="p-3 overflow-y-auto max-h-[calc(100vh-190px)]">
+              <div className="p-3 overflow-y-auto max-h-[calc(100vh-74px)] space-y-2">
                 {nav
                   .find((x) => x.key === "user-preset")
                   ?.children?.map((sub) => {
                     const subHref = sub.href({ deviceId, ch });
                     const subActive =
-                      sub.key === "filters"
-                        ? pathname === `/devices/${deviceId}/filters`
-                        : false;
+                      sub.key === "user-preset-home"
+                        ? pathname === `/devices/${deviceId}/preset`
+                        : sub.key === "filters"
+                          ? pathname === `/devices/${deviceId}/filters`
+                          : false;
 
                     return (
                       <Link
                         key={sub.key}
                         to={subHref}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-3 border transition ${subActive
-                            ? "bg-smx-red/15 border-smx-red/40"
-                            : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
+                        className={`flex items-center gap-2 rounded-xl px-2.5 py-2 border transition ${subActive
+                          ? "bg-smx-red/15 border-smx-red/40"
+                          : "bg-smx-panel2 border-smx-line hover:border-smx-red/30 hover:bg-black/20"
                           }`}
                       >
                         <div
-                          className={`grid place-items-center w-10 h-10 rounded-xl border ${subActive ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
+                          className={`grid place-items-center w-8 h-8 rounded-lg border ${subActive ? "border-smx-red/40 bg-smx-red/10" : "border-smx-line bg-black/20"
                             }`}
                         >
                           <Icon
@@ -615,27 +648,25 @@ export default function Shell({ children }: PropsWithChildren) {
               className="absolute w-[280px] max-h-[calc(100vh-24px)] rounded-2xl border border-smx-line bg-smx-panel shadow-2xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 z-10 bg-smx-panel px-3 pt-3 pb-2 border-b border-smx-line">
-                <div className="text-sm md:text-xs text-smx-muted">Speaker Preset</div>
-              </div>
-
               <div className="p-3 overflow-y-auto max-h-[calc(100vh-74px)] space-y-2">
                 {nav
                   .find((x) => x.key === "speaker")
                   ?.children?.map((sub) => {
                     const subHref = sub.href({ deviceId, ch });
                     const subActive =
-                      sub.key === "speaker-filters"
-                        ? pathname === `/devices/${deviceId}/speaker/filters`
-                        : sub.key === "speaker-fir"
-                          ? pathname === `/devices/${deviceId}/speaker/fir`
-                          : sub.key === "speaker-driver-alignment"
-                            ? pathname === `/devices/${deviceId}/speaker/delay`
-                            : sub.key === "speaker-polarity"
-                              ? pathname === `/devices/${deviceId}/speaker/polarity`
-                              : sub.key === "speaker-limiter"
-                                ? pathname === `/devices/${deviceId}/speaker/limiter`
-                                : false;
+                      sub.key === "speaker-home"
+                        ? pathname === `/devices/${deviceId}/speaker`
+                        : sub.key === "speaker-filters"
+                          ? pathname === `/devices/${deviceId}/speaker/filters`
+                          : sub.key === "speaker-fir"
+                            ? pathname === `/devices/${deviceId}/speaker/fir`
+                            : sub.key === "speaker-driver-alignment"
+                              ? pathname === `/devices/${deviceId}/speaker/delay`
+                              : sub.key === "speaker-polarity"
+                                ? pathname === `/devices/${deviceId}/speaker/polarity`
+                                : sub.key === "speaker-limiter"
+                                  ? pathname === `/devices/${deviceId}/speaker/limiter`
+                                  : false;
 
                     return (
                       <Link

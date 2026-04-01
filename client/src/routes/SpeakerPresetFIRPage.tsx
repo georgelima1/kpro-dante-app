@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useDevice } from "../state/DeviceContext";
 import { API_BASE } from "../config/endpoints";
 import FIRImportModal from "../ui/FIRImportModal";
-import SpeakerPresetLocked from "../ui/SpeakerPresetLocked"
+import SpeakerPresetLocked from "../ui/SpeakerPresetLocked";
 
 type FirState = {
   enabled: boolean;

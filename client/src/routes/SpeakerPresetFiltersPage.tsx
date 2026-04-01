@@ -5,6 +5,7 @@ import Select from "../ui/Select";
 import { FilterType } from "../types/filters";
 import FrequencyResponseChart from "../ui/FrequencyResponseChart";
 import { API_BASE } from "../config/endpoints";
+import SpeakerPresetLocked from "../ui/SpeakerPresetLocked";
 
 type CrossoverFamily = "butterworth" | "linkwitz_riley" | "bessel";
 
@@ -91,6 +92,17 @@ function sliderToFreq(v: number) {
 export default function SpeakerPresetFilterPage() {
   const { status, setStatus, deviceId, ch } = useDevice();
   const channel = status?.channels?.find((c) => c.ch === ch);
+
+  if (!status || !channel) return null;
+
+  if (channel.speakerPreset?.locked) {
+    return (
+      <SpeakerPresetLocked
+        title="Preset Locked"
+        message="This manufacturer preset is protected. Filters settings cannot be viewed or edited."
+      />
+    );
+  }
 
   const [filters, setFilters] = useState<SpeakerFilter[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);

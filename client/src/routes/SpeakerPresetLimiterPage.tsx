@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDevice } from "../state/DeviceContext";
 import { API_BASE } from "../config/endpoints";
+import SpeakerPresetLocked from "../ui/SpeakerPresetLocked";
 
 type PeakLimiterMode = "auto" | "manual";
 

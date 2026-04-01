@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDevice } from "../state/DeviceContext";
 import { API_BASE, WS_BASE } from "../config/endpoints";
+import SpeakerPresetLocked from "../ui/SpeakerPresetLocked";
 
 type Unit = "samples" | "ms" | "feet" | "meter";
 
@@ -14,6 +15,17 @@ function clamp(v: number, min: number, max: number) {
 export default function SpeakerPresetDelayPage() {
   const { status, setStatus, deviceId, ch } = useDevice();
   const channel = status?.channels?.find((c) => c.ch === ch);
+
+  if (!status || !channel) return null;
+
+  if (channel.speakerPreset?.locked) {
+    return (
+      <SpeakerPresetLocked
+        title="Preset Locked"
+        message="This manufacturer preset is protected. Driver Alignment settings cannot be viewed or edited."
+      />
+    );
+  }
 
   const sr = status?.dsp?.sampleRate ?? 48000;
   const maxMs = status?.dsp?.delayMaxMs ?? 100;
