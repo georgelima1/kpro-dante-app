@@ -1,15 +1,5 @@
 import React from "react";
-
-type FilterType =
-  | "hpf"
-  | "lpf"
-  | "parametric"
-  | "low_shelf"
-  | "high_shelf"
-  | "tilt_shelf"
-  | "all_pass"
-  | "band_pass"
-  | "notch";
+import type { FilterType } from "@/types/filters"
 
 export default function FilterIcon({
   type,

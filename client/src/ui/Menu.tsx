@@ -153,7 +153,7 @@ function Dot() {
   return <span className="opacity-40">•</span>;
 }
 
-export default function Shell({ children }: PropsWithChildren) {
+export default function Menu({ children }: PropsWithChildren) {
   const { pathname, search } = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -701,7 +701,7 @@ export default function Shell({ children }: PropsWithChildren) {
         {
           !compact && (
             <div className="mt-10 text-sm md:text-xs text-smx-muted">
-              V0 preparado p/ login, histórico, permissões e OTA (V1+).
+              
             </div>
           )
         }

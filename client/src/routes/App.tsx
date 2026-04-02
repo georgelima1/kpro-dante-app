@@ -4,7 +4,6 @@ import DeviceLayout from "./DeviceLayout";
 import DashboardDevicePage from "./DashboardDevicePage";
 import UserPresetPage from "./UserPresetPage";
 import InputPage from "./InputPage";
-import DelayPage from "./DelayPage";
 import FiltersPage from "./FiltersPage";
 import SpeakerPresetPage from "./SpeakerPresetPage";
 import SpeakerPresetFilterPage from "./SpeakerPresetFiltersPage";
