@@ -108,8 +108,14 @@ type ChannelStatus = {
   route?: { from: string; to?: string };
 };
 
-type PhysicalSource = "analog" | "dante";
+type SourceType = "analog" | "dante";
+type SourceChannel = 1 | 2;
 type InputSourceMode = "analog" | "dante" | "failover";
+
+type SourceRef = {
+  type: SourceType;
+  channel: SourceChannel;
+};
 
 type SourceProcessing = {
   trimDb: number;
@@ -121,20 +127,33 @@ type SourceProcessing = {
 
 type FailoverConfig = {
   thresholdDbu: number;
-  order: PhysicalSource[];
+  order: SourceRef[];
 };
 
 type InputChannelConfig = {
   inputCh: number;
   selectedSource: InputSourceMode;
   mute: boolean;
-  analog: SourceProcessing;
-  dante: SourceProcessing;
+
+  analog: {
+    selectedChannel: SourceChannel;
+    ch1: SourceProcessing;
+    ch2: SourceProcessing;
+  };
+
+  dante: {
+    selectedChannel: SourceChannel;
+    ch1: SourceProcessing;
+    ch2: SourceProcessing;
+  };
+
   failover: FailoverConfig;
+
   inputDelay: {
     enabled: boolean;
     valueSamples: number;
   };
+
   filters: InputFilter[];
 };
 
@@ -313,6 +332,16 @@ function makeDefaultFilters(): ChannelFilter[] {
   ];
 }
 
+function makeSourceProcessing(trimDb = 0, valueSamples = 0): SourceProcessing {
+  return {
+    trimDb,
+    delay: {
+      enabled: true,
+      valueSamples
+    }
+  };
+}
+
 function makeDefaultSpeakerPolarity(): SpeakerPresetPolarityState {
   return {
     polarity: 1
@@ -417,28 +446,38 @@ function makeInputState(channelsCount: number): InputPageState {
       inputCh: i + 1,
       selectedSource: i % 2 === 0 ? "analog" : "failover",
       mute: false,
+
       analog: {
-        trimDb: 0,
-        delay: {
-          enabled: true,
-          valueSamples: 0
-        }
+        selectedChannel: 1,
+        ch1: makeSourceProcessing(0, 0),
+        ch2: makeSourceProcessing(-3, 96)
       },
+
       dante: {
-        trimDb: -12,
-        delay: {
-          enabled: true,
-          valueSamples: 211 // ~4.40 ms @ 48k
-        }
+        selectedChannel: 1,
+        ch1: makeSourceProcessing(-12, 211),
+        ch2: makeSourceProcessing(-6, 160)
       },
+
       failover: {
         thresholdDbu: -60,
-        order: i % 2 === 0 ? ["analog", "dante"] : ["dante", "analog"]
+        order:
+          i % 2 === 0
+            ? [
+                { type: "analog", channel: 1 },
+                { type: "dante", channel: 1 }
+              ]
+            : [
+                { type: "dante", channel: 1 },
+                { type: "analog", channel: 1 }
+              ]
       },
+
       inputDelay: {
         enabled: true,
         valueSamples: 0
       },
+
       filters: makeDefaultInputFilters()
     })),
     matrix: Array.from({ length: channelsCount }).flatMap((_, inIdx) =>
@@ -734,6 +773,93 @@ app.post("/api/v1/devices/:id/input/:inputCh/meta", (req, res) => {
 });
 
 // -------------------- INPUT SOURCE PROCESSING --------------------
+
+app.post("/api/v1/devices/:id/input/:inputCh/source-route/:sourceType", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const inputCh = Number(req.params.inputCh);
+  const sourceType = req.params.sourceType as SourceType;
+  const input = d.input.inputs.find((x) => x.inputCh === inputCh);
+  if (!input) return res.status(404).json({ error: "input channel not found" });
+
+  const { selectedChannel } = req.body ?? {};
+
+  if ((sourceType === "analog" || sourceType === "dante") && (selectedChannel === 1 || selectedChannel === 2)) {
+    input[sourceType].selectedChannel = selectedChannel;
+  }
+
+  res.json({ input });
+});
+
+app.post("/api/v1/devices/:id/input/:inputCh/source/:sourceType/:sourceChannel", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const inputCh = Number(req.params.inputCh);
+  const sourceType = req.params.sourceType as SourceType;
+  const sourceChannel = Number(req.params.sourceChannel) as SourceChannel;
+
+  const input = d.input.inputs.find((x) => x.inputCh === inputCh);
+  if (!input) return res.status(404).json({ error: "input channel not found" });
+
+  if (!(sourceType === "analog" || sourceType === "dante")) {
+    return res.status(400).json({ error: "invalid source type" });
+  }
+
+  if (!(sourceChannel === 1 || sourceChannel === 2)) {
+    return res.status(400).json({ error: "invalid source channel" });
+  }
+
+  const body = req.body ?? {};
+  const target = sourceChannel === 1 ? input[sourceType].ch1 : input[sourceType].ch2;
+
+  if (typeof body.trimDb === "number") {
+    target.trimDb = clamp(body.trimDb, -24, 24);
+  }
+
+  if (body.delay && typeof body.delay === "object") {
+    if (typeof body.delay.enabled === "boolean") {
+      target.delay.enabled = body.delay.enabled;
+    }
+
+    if (typeof body.delay.valueSamples === "number") {
+      target.delay.valueSamples = clamp(Math.round(body.delay.valueSamples), 0, maxSamples(d));
+    }
+  }
+
+  res.json({ input });
+});
+
+app.post("/api/v1/devices/:id/input/:inputCh/failover", (req, res) => {
+  const d = DEVICES[req.params.id];
+  if (!d) return res.status(404).json({ error: "device not found" });
+
+  const inputCh = Number(req.params.inputCh);
+  const input = d.input.inputs.find((x) => x.inputCh === inputCh);
+  if (!input) return res.status(404).json({ error: "input channel not found" });
+
+  const { thresholdDbu, order } = req.body ?? {};
+
+  if (typeof thresholdDbu === "number") {
+    input.failover.thresholdDbu = clamp(thresholdDbu, -90, 0);
+  }
+
+  if (
+    Array.isArray(order) &&
+    order.length === 2 &&
+    order.every(
+      (x) =>
+        x &&
+        (x.type === "analog" || x.type === "dante") &&
+        (x.channel === 1 || x.channel === 2)
+    )
+  ) {
+    input.failover.order = order;
+  }
+
+  res.json({ input });
+});
 
 app.post("/api/v1/devices/:id/input/:inputCh/source/:sourceKey", (req, res) => {
   const d = DEVICES[req.params.id];

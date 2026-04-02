@@ -3,6 +3,7 @@ import ChannelStrip from "./ChannelStrip";
 import { useDevice } from "../state/DeviceContext";
 import FlagDot from "./FlagDot";
 import { API_BASE, WS_BASE } from "../config/endpoints";
+import Icon from "../ui/Icon";
 
 export default function ChannelHeader() {
   const { status, setStatus, deviceId, ch, setCh } = useDevice();
@@ -176,8 +177,8 @@ export default function ChannelHeader() {
                       key={n}
                       onClick={() => setCh(n)}
                       className={`px-3 py-1.5 rounded-xl border text-sm font-semibold transition ${active
-                          ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
-                          : "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30"
+                        ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
+                        : "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30"
                         }`}
                     >
                       {n}
@@ -225,15 +226,16 @@ export default function ChannelHeader() {
 
               <button
                 onClick={() => setMute(!channel.audio.mute)}
-                className={`w-10 h-10 rounded-2xl border flex items-center justify-center
-            transition-all duration-200 active:scale-95 font-semibold
-            ${channel.audio.mute
-                    ? "bg-smx-red/25 border-smx-red text-smx-red shadow-md"
-                    : "bg-smx-panel2 border-smx-line text-white hover:border-smx-red/40"
+                className={`w-10 h-10 rounded-xl border grid place-items-center transition ${channel.audio.mute
+                  ? "bg-smx-red/15 border-smx-red/40"
+                  : "bg-smx-panel2 border-smx-line hover:border-smx-red/30"
                   }`}
-                title="Mute"
               >
-                M
+                <Icon
+                  name={channel.audio.mute ? "volume_off" : "volume_up"}
+                  className={channel.audio.mute ? "text-smx-red" : "text-smx-text"}
+                  filled={channel.audio.mute}
+                />
               </button>
 
               <button
@@ -272,8 +274,8 @@ export default function ChannelHeader() {
                       key={n}
                       onClick={() => setCh(n)}
                       className={`h-10 rounded-xl border text-sm font-semibold transition ${active
-                          ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
-                          : "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30"
+                        ? "bg-smx-red/15 border-smx-red/40 text-smx-text"
+                        : "bg-smx-panel2 border-smx-line text-smx-muted hover:border-smx-red/30"
                         }`}
                     >
                       {n}
@@ -285,6 +287,22 @@ export default function ChannelHeader() {
 
             {/* Right: só controles */}
             <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 mr-1">
+                <FlagDot
+                  on={!!channel.flags.protect}
+                  color="red"
+                  title={
+                    channel.flags.protect
+                      ? `Protect: ${channel.flags.reason ?? "—"}`
+                      : "Protect: OFF"
+                  }
+                />
+                <FlagDot
+                  on={!!channel.flags.limit}
+                  color="white"
+                  title={channel.flags.limit ? "Limit: ON" : "Limit: OFF"}
+                />
+              </div>
               <button
                 onClick={() => togglePolarity()}
                 className={`w-10 h-10 rounded-2xl border flex items-center justify-center
@@ -300,15 +318,16 @@ export default function ChannelHeader() {
 
               <button
                 onClick={() => setMute(!channel.audio.mute)}
-                className={`w-10 h-10 rounded-2xl border flex items-center justify-center
-            transition-all duration-200 active:scale-95 font-semibold
-            ${channel.audio.mute
-                    ? "bg-smx-red/25 border-smx-red text-smx-red shadow-md"
-                    : "bg-smx-panel2 border-smx-line text-white hover:border-smx-red/40"
+                className={`w-10 h-10 rounded-xl border grid place-items-center transition ${channel.audio.mute
+                  ? "bg-smx-red/15 border-smx-red/40"
+                  : "bg-smx-panel2 border-smx-line hover:border-smx-red/30"
                   }`}
-                title="Mute"
               >
-                M
+                <Icon
+                  name={channel.audio.mute ? "volume_off" : "volume_up"}
+                  className={channel.audio.mute ? "text-smx-red" : "text-smx-text"}
+                  filled={channel.audio.mute}
+                />
               </button>
 
               <button

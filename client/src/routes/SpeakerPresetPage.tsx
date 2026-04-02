@@ -49,7 +49,7 @@ export default function SpeakerPresetPage() {
   }
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-8xl space-y-8">
       <section className="bg-smx-panel border border-smx-line rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-smx-line flex items-center gap-3">
           <div className="text-base font-semibold">Speaker Preset</div>

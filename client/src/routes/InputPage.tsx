@@ -6,6 +6,7 @@ import InputDelayAccordion from "../ui/InputDelayAccordion";
 import InputFiltersAccordion from "../ui/InputFiltersAccordion";
 import InputSourceConfigModal from "../ui/InputSourceConfigModal";
 import Select from "../ui/Select";
+import Icon from "../ui/Icon";
 
 export type FilterType =
   | "hpf"
@@ -32,7 +33,13 @@ export type InputFilter = {
 };
 
 export type InputSourceMode = "analog" | "dante" | "failover";
-export type PhysicalSource = "analog" | "dante";
+export type SourceType = "analog" | "dante";
+export type SourceChannel = 1 | 2;
+
+export type SourceRef = {
+  type: SourceType;
+  channel: SourceChannel;
+};
 
 export type SourceProcessing = {
   trimDb: number;
@@ -44,15 +51,21 @@ export type SourceProcessing = {
 
 export type FailoverConfig = {
   thresholdDbu: number;
-  order: PhysicalSource[];
+  order: SourceRef[];
+};
+
+export type SourceBank = {
+  selectedChannel: SourceChannel;
+  ch1: SourceProcessing;
+  ch2: SourceProcessing;
 };
 
 export type InputChannelConfig = {
   inputCh: number;
   selectedSource: InputSourceMode;
   mute: boolean;
-  analog: SourceProcessing;
-  dante: SourceProcessing;
+  analog: SourceBank;
+  dante: SourceBank;
   failover: FailoverConfig;
   inputDelay: {
     enabled: boolean;
@@ -129,11 +142,36 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
 
   async function updateSourceProcessing(
     inputCh: number,
-    sourceKey: "analog" | "dante",
+    sourceType: SourceType,
+    sourceChannel: SourceChannel,
     patch: Partial<SourceProcessing>
   ) {
     const r = await fetch(
-      `${API_BASE}/api/v1/devices/${deviceId}/input/${inputCh}/source/${sourceKey}`,
+      `${API_BASE}/api/v1/devices/${deviceId}/input/${inputCh}/source/${sourceType}/${sourceChannel}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch)
+      }
+    );
+    const j = await r.json();
+
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        inputs: prev.inputs.map((x) => (x.inputCh === inputCh ? j.input : x))
+      };
+    });
+  }
+
+  async function updateSourceRoute(
+    inputCh: number,
+    sourceType: SourceType,
+    patch: { selectedChannel?: SourceChannel }
+  ) {
+    const r = await fetch(
+      `${API_BASE}/api/v1/devices/${deviceId}/input/${inputCh}/source-route/${sourceType}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -268,14 +306,14 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
   return (
     <div className="w-full max-w-none space-y-6">
       {data.inputs.map((input) => {
-        const activePhysicalSource: PhysicalSource =
+        const activeSourceRef: SourceRef =
           input.selectedSource === "analog"
-            ? "analog"
+            ? { type: "analog", channel: input.analog.selectedChannel }
             : input.selectedSource === "dante"
-              ? "dante"
-              : input.failover.order[0] ?? "analog";
+              ? { type: "dante", channel: input.dante.selectedChannel }
+              : input.failover.order[0] ?? { type: "analog", channel: 1 };
 
-        const activeProc = activePhysicalSource === "analog" ? input.analog : input.dante;
+        const activeProc = getSourceProcessing(input, activeSourceRef);
 
         const trimSummary = `${activeProc.trimDb.toFixed(1)} dB`;
         const delaySummary = `${samplesToMs(
@@ -286,35 +324,28 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
         const sourceOptions = [
           {
             value: "analog",
-            label: "Analog"
+            label: `Analog ${input.analog.selectedChannel}`
           },
           {
             value: "dante",
-            label: "Dante"
+            label: `Dante ${input.dante.selectedChannel}`
           },
           {
             value: "failover",
-            label: `Failover (${input.failover.order[0]} > ${input.failover.order[1]})`
+            label: `Failover (${sourceRefLabel(input.failover.order[0])} > ${sourceRefLabel(input.failover.order[1])})`
           }
         ];
 
-        const analogTrimSummary = `${input.analog.trimDb.toFixed(1)} dB`;
-        const analogDelaySummary = `${samplesToMs(
-          input.analog.delay.valueSamples,
-          status.dsp.sampleRate
-        ).toFixed(2)} ms`;
+        const failoverRows = input.failover.order.map((src) => {
+          const proc = getSourceProcessing(input, src);
 
-        const danteTrimSummary = `${input.dante.trimDb.toFixed(1)} dB`;
-        const danteDelaySummary = `${samplesToMs(
-          input.dante.delay.valueSamples,
-          status.dsp.sampleRate
-        ).toFixed(2)} ms`;
-
-        const failoverRows = input.failover.order.map((src) => ({
-          src,
-          trim: src === "analog" ? analogTrimSummary : danteTrimSummary,
-          delay: src === "analog" ? analogDelaySummary : danteDelaySummary
-        }));
+          return {
+            src,
+            label: sourceRefLabel(src),
+            trim: `${proc.trimDb.toFixed(1)} dB`,
+            delay: `${samplesToMs(proc.delay.valueSamples, status.dsp.sampleRate).toFixed(2)} ms`
+          };
+        });
 
         return (
           <section
@@ -331,15 +362,16 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
                 <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => updateInputMeta(input.inputCh, { mute: !input.mute })}
-                    className={`w-10 h-10 rounded-2xl border flex items-center justify-center
-          transition-all duration-200 active:scale-95 font-semibold
-          ${input.mute
-                        ? "bg-smx-red/25 border-smx-red text-smx-red shadow-md"
-                        : "bg-smx-panel2 border-smx-line text-white hover:border-smx-red/40"
+                    className={`w-10 h-10 rounded-xl border grid place-items-center transition ${input.mute
+                        ? "bg-smx-red/15 border-smx-red/40"
+                        : "bg-smx-panel2 border-smx-line hover:border-smx-red/30"
                       }`}
-                    title="Mute"
                   >
-                    M
+                    <Icon
+                      name={input.mute ? "volume_off" : "volume_up"}
+                      className={input.mute ? "text-smx-red" : "text-smx-text"}
+                      filled={input.mute}
+                    />
                   </button>
 
                   <button
@@ -382,10 +414,11 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
                   <div className="text-xs md:text-[12px] text-smx-muted">
                     {failoverRows.map((row) => (
                       <div
-                        key={row.src}
+
+                        key={`${row.src.type}-${row.src.channel}`}
                         className="grid grid-cols-[72px_140px_140px] gap-x-4 items-center"
                       >
-                        <div className="text-smx-text font-medium capitalize">{row.src}</div>
+                        <div className="text-smx-text font-medium">{row.label}</div>
 
                         <div>
                           Trim <span className="text-smx-text font-medium">{row.trim}</span>
@@ -543,8 +576,11 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
           sampleRate={status.dsp.sampleRate}
           delayMaxMs={status.dsp.delayMaxMs}
           onClose={() => setEditingInputCh(null)}
-          onSourceProcessingChange={(sourceKey, patch) =>
-            updateSourceProcessing(editingInput.inputCh, sourceKey, patch)
+          onSourceRouteChange={(sourceType, patch) =>
+            updateSourceRoute(editingInput.inputCh, sourceType, patch)
+          }
+          onSourceProcessingChange={(sourceType, sourceChannel, patch) =>
+            updateSourceProcessing(editingInput.inputCh, sourceType, sourceChannel, patch)
           }
           onFailoverChange={(patch) => updateFailover(editingInput.inputCh, patch)}
         />
@@ -578,4 +614,13 @@ function QuickBtn({
 
 function samplesToMs(samples: number, sampleRate: number) {
   return (samples / sampleRate) * 1000;
+}
+
+function getSourceProcessing(input: InputChannelConfig, ref: SourceRef): SourceProcessing {
+  const bank = ref.type === "analog" ? input.analog : input.dante;
+  return ref.channel === 1 ? bank.ch1 : bank.ch2;
+}
+
+function sourceRefLabel(ref: SourceRef) {
+  return `${ref.type === "analog" ? "Analog" : "Dante"} ${ref.channel}`;
 }

@@ -188,7 +188,7 @@ export default function Shell({ children }: PropsWithChildren) {
     if (isDeviceRoot) return "Dashboard";
 
     if (pathname.endsWith("/input")) return "Input";
-    
+
     if (pathname.endsWith("/speaker/fir")) return "Speaker FIR";
     if (pathname.endsWith("/speaker/filters")) return "Speaker Filters";
     if (pathname.endsWith("/speaker/delay")) return "Speaker Delay";
@@ -238,6 +238,7 @@ export default function Shell({ children }: PropsWithChildren) {
 
   useEffect(() => {
     setUserPresetFlyoutOpen(false);
+    setSpeakerFlyoutOpen(false);
   }, [pathname]);
 
   useEffect(() => {
