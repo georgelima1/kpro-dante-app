@@ -363,8 +363,8 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
                   <button
                     onClick={() => updateInputMeta(input.inputCh, { mute: !input.mute })}
                     className={`w-10 h-10 rounded-xl border grid place-items-center transition ${input.mute
-                        ? "bg-smx-red/15 border-smx-red/40"
-                        : "bg-smx-panel2 border-smx-line hover:border-smx-red/30"
+                      ? "bg-smx-red/15 border-smx-red/40"
+                      : "bg-smx-panel2 border-smx-line hover:border-smx-red/30"
                       }`}
                   >
                     <Icon
@@ -468,104 +468,103 @@ function InputPageInner({ deviceId }: { deviceId: string }) {
         </div>
 
         <div className="p-4 overflow-x-auto">
-          <div className="min-w-[720px]">
-            <div
-              className="grid gap-2 items-center"
-              style={{
-                gridTemplateColumns: `100px repeat(${channelsCount}, 144px)`
-              }}
-            >
-              <div />
-              {Array.from({ length: channelsCount }).map((_, i) => (
-                <div
-                  key={`head-${i + 1}`}
-                  className="text-center text-sm md:text-xs text-smx-muted font-semibold"
-                >
-                  OUT {i + 1}
+          <div
+            className="grid gap-2items-center w-max min-w-full"
+            style={{
+              gridTemplateColumns: `70px repeat(${channelsCount}, 144px)`
+            }}
+          >
+            <div />
+            {Array.from({ length: channelsCount }).map((_, i) => (
+              <div
+                key={`head-${i + 1}`}
+                className="text-center text-sm md:text-xs text-smx-muted font-semibold"
+              >
+                OUT {i + 1}
+              </div>
+            ))}
+
+            {matrixByInput.map((row) => (
+              <React.Fragment key={`row-${row.inputCh}`}>
+                <div className="text-sm font-semibold text-smx-text">
+                  IN {row.inputCh}
                 </div>
-              ))}
 
-              {matrixByInput.map((row) => (
-                <React.Fragment key={`row-${row.inputCh}`}>
-                  <div className="text-sm font-semibold text-smx-text">
-                    IN {row.inputCh}
-                  </div>
+                {Array.from({ length: channelsCount }).map((_, outIdx) => {
+                  const outputCh = outIdx + 1;
+                  const cell = row.cells.find((c) => c.outputCh === outputCh);
+                  if (!cell) return <div key={`${row.inputCh}-${outputCh}`} />;
 
-                  {Array.from({ length: channelsCount }).map((_, outIdx) => {
-                    const outputCh = outIdx + 1;
-                    const cell = row.cells.find((c) => c.outputCh === outputCh);
-                    if (!cell) return <div key={`${row.inputCh}-${outputCh}`} />;
+                  const effectiveGain = cell.mute ? -120 : cell.gainDb;
 
-                    const effectiveGain = cell.mute ? -120 : cell.gainDb;
+                  return (
+                    <div
+                      key={`${row.inputCh}-${outputCh}`}
+                      className="rounded-xl border border-smx-line bg-smx-panel2 p-2 space-y-2"
+                    >
+                      <div className="text-center text-sm md:text-xs">
+                        <span className="font-semibold text-smx-text">
+                          {cell.mute || effectiveGain <= -120
+                            ? "-∞"
+                            : `${effectiveGain.toFixed(1)} dB`}
+                        </span>
+                      </div>
 
-                    return (
-                      <div
-                        key={`${row.inputCh}-${outputCh}`}
-                        className="rounded-xl border border-smx-line bg-smx-panel2 p-2 space-y-2"
-                      >
-                        <div className="text-center text-sm md:text-xs">
-                          <span className="font-semibold text-smx-text">
-                            {cell.mute || effectiveGain <= -120
-                              ? "-∞"
-                              : `${effectiveGain.toFixed(1)} dB`}
-                          </span>
-                        </div>
+                      <input
+                        type="range"
+                        min={-40}
+                        max={0}
+                        step={0.5}
+                        value={effectiveGain}
+                        onChange={(e) =>
+                          updateMatrixCell(row.inputCh, outputCh, {
+                            mute: false,
+                            gainDb: Number(e.target.value)
+                          })
+                        }
+                        className="w-full smx-range smx-range-fill smx-range-red"
+                        style={{
+                          ["--fill" as any]: `${((effectiveGain + 40) / 40) * 100}%`
+                        }}
+                      />
 
-                        <input
-                          type="range"
-                          min={-40}
-                          max={0}
-                          step={0.5}
-                          value={effectiveGain}
-                          onChange={(e) =>
+                      <div className="grid grid-cols-3 gap-1">
+                        <QuickBtn
+                          label="-∞"
+                          active={cell.mute}
+                          onClick={() =>
                             updateMatrixCell(row.inputCh, outputCh, {
-                              mute: false,
-                              gainDb: Number(e.target.value)
+                              mute: !cell.mute
                             })
                           }
-                          className="w-full smx-range smx-range-fill smx-range-red"
-                          style={{
-                            ["--fill" as any]: `${((effectiveGain + 40) / 40) * 100}%`
-                          }}
                         />
-
-                        <div className="grid grid-cols-3 gap-1">
-                          <QuickBtn
-                            label="M"
-                            active={cell.mute}
-                            onClick={() =>
-                              updateMatrixCell(row.inputCh, outputCh, {
-                                mute: !cell.mute
-                              })
-                            }
-                          />
-                          <QuickBtn
-                            label="-6"
-                            active={!cell.mute && Math.abs(cell.gainDb + 6) < 0.01}
-                            onClick={() =>
-                              updateMatrixCell(row.inputCh, outputCh, {
-                                mute: false,
-                                gainDb: -6
-                              })
-                            }
-                          />
-                          <QuickBtn
-                            label="0"
-                            active={!cell.mute && Math.abs(cell.gainDb - 0) < 0.01}
-                            onClick={() =>
-                              updateMatrixCell(row.inputCh, outputCh, {
-                                mute: false,
-                                gainDb: 0
-                              })
-                            }
-                          />
-                        </div>
+                        <QuickBtn
+                          label="-6"
+                          active={!cell.mute && Math.abs(cell.gainDb + 6) < 0.01}
+                          onClick={() =>
+                            updateMatrixCell(row.inputCh, outputCh, {
+                              mute: false,
+                              gainDb: -6
+                            })
+                          }
+                        />
+                        <QuickBtn
+                          label="0"
+                          active={!cell.mute && Math.abs(cell.gainDb - 0) < 0.01}
+                          onClick={() =>
+                            updateMatrixCell(row.inputCh, outputCh, {
+                              mute: false,
+                              gainDb: 0
+                            })
+                          }
+                        />
                       </div>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-            </div>
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+
           </div>
         </div>
       </section>
